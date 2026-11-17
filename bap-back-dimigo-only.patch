@@ -1,8 +1,14 @@
 diff --git a/bun.lock b/bun.lock
-index 52a45d7fc17c5c4d68d42e8a5995b871fe157206..9f280bd2c2a922a3183be4adb1d347e266fd12d5 100644
+index 52a45d7fc17c5c4d68d42e8a5995b871fe157206..ba301de9892136589d5efdf7204e1028967c0aeb 100644
 --- a/bun.lock
 +++ b/bun.lock
-@@ -12,7 +12,6 @@
+@@ -6,13 +6,11 @@
+       "name": "bap-back",
+       "dependencies": {
+         "@elysiajs/cors": "^1.4.2",
+-        "@elysiajs/openapi": "^1.4.15",
+         "@modelcontextprotocol/server": "^2.0.0",
+         "cheerio": "^1.2.0",
          "elysia": "^1.4.29",
          "marked": "^18.0.11",
          "mongodb": "^6.21.0",
@@ -10,7 +16,16 @@ index 52a45d7fc17c5c4d68d42e8a5995b871fe157206..9f280bd2c2a922a3183be4adb1d347e2
        },
        "devDependencies": {
          "@biomejs/biome": "2.2.0",
-@@ -142,8 +141,6 @@
+@@ -50,8 +48,6 @@
+ 
+     "@elysiajs/cors": ["@elysiajs/cors@1.4.2", "", { "peerDependencies": { "elysia": ">= 1.4.0" } }, "sha512-FTCcbH35brTLigF1W7BYySRZomgI/dBEMK9BgK9RP9Nez7zmpGh4koL/Yr1BFv8nYz7CfhRvcM8d/c+XnwMaVQ=="],
+ 
+-    "@elysiajs/openapi": ["@elysiajs/openapi@1.4.15", "", { "peerDependencies": { "elysia": ">= 1.4.0" } }, "sha512-HDtGIrWfFJk6UJS7qbgRmjifbSqnnRGDM3CsU/GVJkxLbEVEkNuQDf+Quh9fGbytSrJ8g4+tX9eVjshYhCH29w=="],
+-
+     "@modelcontextprotocol/client": ["@modelcontextprotocol/client@2.0.0", "", { "dependencies": { "@modelcontextprotocol/core": "2.0.0", "cross-spawn": "^7.0.5", "eventsource": "^3.0.2", "eventsource-parser": "^3.0.0", "jose": "^6.1.3", "pkce-challenge": "^5.0.0", "zod": "^4.2.0" } }, "sha512-8f1OghQ2rjzIOfqgUCP+8GiUWqRs89njoWLNqAe8kWmDePv3s1fZXseej+QXemssEuuOvLLmLO/kqM3IQHtISw=="],
+ 
+     "@modelcontextprotocol/core": ["@modelcontextprotocol/core@2.0.0", "", { "dependencies": { "zod": "^4.2.0" } }, "sha512-pJCEwGG7Lfr/+PQp9ZTwKXNeO5wzbfKL7H3MYpCorM4oFBoQrdjnBgEoqG+RjhsvS1FKrDbKux+M1HhlnGWqcA=="],
+@@ -142,8 +138,6 @@
  
      "nth-check": ["nth-check@2.1.1", "", { "dependencies": { "boolbase": "^1.0.0" } }, "sha512-lqjrjmaOoAnWfMmBPL+XNnynZh2+swxiX3WUE0s4yEHI6m+AwrK2UZOimIRl3X/4QctVqS8AiZjFqyOGrMXb/w=="],
  
@@ -20,10 +35,15 @@ index 52a45d7fc17c5c4d68d42e8a5995b871fe157206..9f280bd2c2a922a3183be4adb1d347e2
  
      "parse5": ["parse5@7.3.0", "", { "dependencies": { "entities": "^6.0.0" } }, "sha512-IInvU7fabl34qmi9gY8XOVxhYyMyuH2xUNpb2q8/Y+7552KlejkRvqvD19nMoUW/uQGGbqNpA6Tufu5FL5BZgw=="],
 diff --git a/package.json b/package.json
-index d00e1c72026fb80d83303927070c9da87ec67580..b5f06198235b41c9c494539cff220e467a87ce7f 100644
+index d00e1c72026fb80d83303927070c9da87ec67580..33ac798d6082588b4c97b4d8f331183b813f8f87 100644
 --- a/package.json
 +++ b/package.json
-@@ -18,8 +18,7 @@
+@@ -13,13 +13,11 @@
+   },
+   "dependencies": {
+     "@elysiajs/cors": "^1.4.2",
+-    "@elysiajs/openapi": "^1.4.15",
+     "@modelcontextprotocol/server": "^2.0.0",
      "cheerio": "^1.2.0",
      "elysia": "^1.4.29",
      "marked": "^18.0.11",
@@ -34,17 +54,18 @@ index d00e1c72026fb80d83303927070c9da87ec67580..b5f06198235b41c9c494539cff220e46
    "scripts": {
      "start": "bun src/index.ts",
 diff --git a/src/core/config.ts b/src/core/config.ts
-index ffbf86f063c9cd20a800096f930c64c5392e19e6..6a892ad49d3b684a17435a982d4d84420b307cb4 100644
+index ffbf86f063c9cd20a800096f930c64c5392e19e6..8dbb1a61a7ff1a63daca4b403784c6e83bdd5f92 100644
 --- a/src/core/config.ts
 +++ b/src/core/config.ts
-@@ -4,7 +4,6 @@ export const CONFIG = {
+@@ -4,8 +4,6 @@ export const CONFIG = {
      HOST: process.env.HOST || "localhost",
    },
    MONGODB_URI: process.env.MONGODB_URI || "mongodb://localhost:27017",
 -  MINDLOGIC_KEY: process.env.MINDLOGIC_KEY || "",
-   PUBLIC_API_URL: process.env.PUBLIC_API_URL || "https://api.밥.net",
+-  PUBLIC_API_URL: process.env.PUBLIC_API_URL || "https://api.밥.net",
    HTTP: {
      RETRY: {
+       COUNT: 3,
 diff --git a/src/core/partnerAdEvent.test.ts b/src/core/partnerAdEvent.test.ts
 deleted file mode 100644
 index 0111d70148694307736c49b6ac61d1a0d8ee042b..0000000000000000000000000000000000000000
@@ -468,19 +489,20 @@ index 4108c48a61a440b34103b6f95d152db3fffa2519..03f7fe2943954cbac09fb7f82d2e7c42
    meals: MealSlotMeta[];
  }
 diff --git a/src/http/app.test.ts b/src/http/app.test.ts
-index 4a59f80e6a6758c5ef91a50f3d2d980865d76b98..27ed0aa65017eb8817fdd24c135be4721fa56cf1 100644
+index 4a59f80e6a6758c5ef91a50f3d2d980865d76b98..a47ccdfb6e4b6ddef16be781759eed1fafcdbdf7 100644
 --- a/src/http/app.test.ts
 +++ b/src/http/app.test.ts
-@@ -1,8 +1,6 @@
+@@ -1,9 +1,6 @@
  import { describe, expect, test } from "bun:test";
  import { MealNotFoundError } from "@/core/errors";
  import type { MongoDBService } from "@/core/mongodb";
 -import { seoulDate } from "@/core/partnerAdEvent";
 -import type { PartnerAdDailyEvent, PartnerAdRecorder } from "@/core/partnerAdStats";
- import { APP_VERSION } from "@/core/version";
+-import { APP_VERSION } from "@/core/version";
  import { createApp } from "@/http/app";
  import { ProviderRegistry } from "@/providers/registry";
-@@ -51,10 +49,7 @@ function fakeProvider(id: string, overrides: Partial<MealProvider> = {}): MealPr
+ import type { MealProvider, ProviderConfig } from "@/providers/types";
+@@ -51,10 +48,7 @@ function fakeProvider(id: string, overrides: Partial<MealProvider> = {}): MealPr
    };
  }
  
@@ -492,7 +514,7 @@ index 4a59f80e6a6758c5ef91a50f3d2d980865d76b98..27ed0aa65017eb8817fdd24c135be472
    const registry = new ProviderRegistry();
    for (const provider of providers) {
      registry.register(provider);
-@@ -62,7 +57,6 @@ function testApp(
+@@ -62,7 +56,6 @@ function testApp(
  
    return createApp({
      registry,
@@ -500,7 +522,7 @@ index 4a59f80e6a6758c5ef91a50f3d2d980865d76b98..27ed0aa65017eb8817fdd24c135be472
      mcpHandler: {
        fetch: async (request) => {
          const body = await request.text();
-@@ -87,7 +81,7 @@ describe("Elysia app", () => {
+@@ -87,7 +80,7 @@ describe("Elysia app", () => {
      expect(response.status).toBe(200);
      expect(body.message).toBe("api.밥.net");
      expect(body.requestId).toEqual(expect.any(String));
@@ -509,12 +531,36 @@ index 4a59f80e6a6758c5ef91a50f3d2d980865d76b98..27ed0aa65017eb8817fdd24c135be472
    });
  
    test("GET /:provider/health returns stats", async () => {
-@@ -182,51 +176,16 @@ describe("Elysia app", () => {
-     expect(spec.paths["/{provider}/search/{food}"]).toBeDefined();
-     expect(spec.paths["/{provider}/health"]).toBeDefined();
-     expect(spec.paths["/mcp"]).toBeDefined();
+@@ -165,68 +158,24 @@ describe("Elysia app", () => {
+     expect(html).toContain("Changelog");
+   });
+ 
+-  test("GET /docs serves Scalar and the generated spec", async () => {
++  test("API documentation endpoints are removed", async () => {
+     const app = testApp();
+-    const docs = await app.handle(new Request("http://localhost/docs"));
+-    const specResponse = await app.handle(new Request("http://localhost/docs/openapi.json"));
+-    const spec = await specResponse.json();
+-
+-    expect(docs.status).toBe(200);
+-    expect(await docs.text()).toMatch(/scalar/i);
+-    expect(specResponse.status).toBe(200);
+-    expect(spec.info.title).toBe("밥.net API");
+-    expect(spec.info.version).toBe(APP_VERSION);
+-    expect(spec.paths["/"]).toBeDefined();
+-    expect(spec.paths["/changelog"]).toBeDefined();
+-    expect(spec.paths["/{provider}/{date}"]).toBeDefined();
+-    expect(spec.paths["/{provider}/search/{food}"]).toBeDefined();
+-    expect(spec.paths["/{provider}/health"]).toBeDefined();
+-    expect(spec.paths["/mcp"]).toBeDefined();
 -    expect(spec.paths["/partner-ads/events"]).toBeDefined();
-+    expect(spec.paths["/partner-ads/events"]).toBeUndefined();
++    expect(app.routes.some((route) => route.path.startsWith("/docs") || route.path === "/openapi.json")).toBe(false);
++    for (const path of ["/docs", "/docs/openapi.json", "/openapi.json"]) {
++      const { response, body } = await json(app, path);
++      // The old spec URL now falls through to /:provider/:date validation.
++      expect(response.status).toBe(path === "/docs/openapi.json" ? 400 : 404);
++      expect(body.error).toBe(path === "/docs/openapi.json" ? "Invalid date format" : "Endpoint not found");
++    }
    });
  
 -  test("POST /partner-ads/events records one daily counter and ignores bots", async () => {
@@ -570,19 +616,35 @@ index 4a59f80e6a6758c5ef91a50f3d2d980865d76b98..27ed0aa65017eb8817fdd24c135be472
  
    test("POST /mcp forwards the raw body", async () => {
 diff --git a/src/http/app.ts b/src/http/app.ts
-index 1136a17fe582b78e1e93fed11e1b40cf731199b0..083ca389d336a691376fb87c9d78f49bd1594388 100644
+index 1136a17fe582b78e1e93fed11e1b40cf731199b0..8ee5a2a8bcb467c4cf83ab254fb893880dafa0e6 100644
 --- a/src/http/app.ts
 +++ b/src/http/app.ts
-@@ -7,8 +7,6 @@ import { allowedFrontendOrigins, MCP_CORS } from "@/core/cors";
+@@ -1,24 +1,17 @@
+ import { cors } from "@elysiajs/cors";
+-import { openapi } from "@elysiajs/openapi";
+ import { Elysia, ElysiaCustomStatusResponse, status, t } from "elysia";
+ import { loadChangelogMarkdown, renderChangelogHtml } from "@/core/changelog";
+-import { CONFIG } from "@/core/config";
+ import { allowedFrontendOrigins, MCP_CORS } from "@/core/cors";
  import { ApiError, MealNoOperationError, MealNotFoundError } from "@/core/errors";
  import { logger } from "@/core/logger";
- import { MEAL_ERROR_MESSAGES } from "@/core/mealErrors";
+-import { MEAL_ERROR_MESSAGES } from "@/core/mealErrors";
 -import { decidePartnerAdEvent } from "@/core/partnerAdEvent";
 -import type { PartnerAdRecorder } from "@/core/partnerAdStats";
  import type { MealResponse } from "@/core/types";
  import {
-   apiModels,
-@@ -30,7 +28,6 @@ export interface McpFetchHandler {
+-  apiModels,
+   CatalogResponse,
+   ErrorResponse,
+   HealthResponse,
+   MealResponse as MealResponseSchema,
+   SearchResponse,
+ } from "@/http/models";
+-import { openapiInfo, openapiServers, openapiTags } from "@/http/openapi";
+ import type { ProviderRegistry } from "@/providers/registry";
+ import type { MealProvider } from "@/providers/types";
+ import { isValidDate } from "@/utils/date";
+@@ -30,7 +23,6 @@ export interface McpFetchHandler {
  export interface AppDeps {
    registry: ProviderRegistry;
    mcpHandler: McpFetchHandler;
@@ -590,7 +652,7 @@ index 1136a17fe582b78e1e93fed11e1b40cf731199b0..083ca389d336a691376fb87c9d78f49b
  }
  
  function requireProvider(registry: ProviderRegistry, id: string, requestId: string, timestamp: string): MealProvider {
-@@ -41,7 +38,7 @@ function requireProvider(registry: ProviderRegistry, id: string, requestId: stri
+@@ -41,7 +33,7 @@ function requireProvider(registry: ProviderRegistry, id: string, requestId: stri
    return provider;
  }
  
@@ -599,10 +661,53 @@ index 1136a17fe582b78e1e93fed11e1b40cf731199b0..083ca389d336a691376fb87c9d78f49b
    return new Elysia({ name: "bap-api" })
      .decorate("registry", registry)
      .decorate("mcpHandler", mcpHandler)
-@@ -147,51 +144,6 @@ export function createApp({ registry, mcpHandler, partnerAds }: AppDeps) {
-             },
+@@ -98,19 +90,6 @@ export function createApp({ registry, mcpHandler, partnerAds }: AppDeps) {
+             allowedHeaders: ["Content-Type", "Authorization"],
+           }),
+         )
+-        .model(apiModels)
+-        .use(
+-          openapi({
+-            path: "/docs",
+-            specPath: "/docs/openapi.json",
+-            provider: "scalar",
+-            documentation: {
+-              info: openapiInfo(registry),
+-              servers: openapiServers(),
+-              tags: openapiTags,
+-            },
+-          }),
+-        )
+         .get(
+           "/",
+           ({ requestId, timestamp }) => ({
+@@ -121,13 +100,6 @@ export function createApp({ registry, mcpHandler, partnerAds }: AppDeps) {
+           }),
+           {
+             response: { 200: CatalogResponse },
+-            detail: {
+-              tags: ["Catalog"],
+-              summary: "프로바이더 카탈로그 조회",
+-              description:
+-                "등록된 모든 사이트의 메타데이터를 반환합니다. 이름, 끼니 슬롯, 아이콘, 기능 플래그가 담겨 있어 프론트엔드가 별도 설정 없이 이 응답만으로 화면을 구성할 수 있습니다.",
+-              operationId: "getCatalog",
+-            },
            },
          )
+         .get(
+@@ -138,63 +110,8 @@ export function createApp({ registry, mcpHandler, partnerAds }: AppDeps) {
+           },
+           {
+             response: t.String(),
+-            detail: {
+-              tags: ["Changelog"],
+-              summary: "CHANGELOG",
+-              description:
+-                "루트 `CHANGELOG.md`를 HTML 페이지로 렌더링합니다. 프론트 홈 **CHANGELOG** 링크가 이 URL로 이동합니다.",
+-              operationId: "getChangelog",
+-            },
+-          },
+-        )
 -        .post(
 -          "/partner-ads/events",
 -          async ({ request, requestId, timestamp, set }) => {
@@ -646,33 +751,116 @@ index 1136a17fe582b78e1e93fed11e1b40cf731199b0..083ca389d336a691376fb87c9d78f49b
 -              ].join("\n"),
 -              operationId: "recordPartnerAdEvent",
 -            },
--          },
--        )
-         .get("/openapi.json", ({ redirect }) => redirect("/docs/openapi.json"), {
-           detail: { hide: true },
-         })
-@@ -307,10 +259,7 @@ export function createApp({ registry, mcpHandler, partnerAds }: AppDeps) {
-                   description: [
-                     "지정한 날짜의 식단을 반환합니다. 끼니 순서는 카탈로그의 `meals` 배열과 동일합니다.",
-                     "",
+           },
+         )
+-        .get("/openapi.json", ({ redirect }) => redirect("/docs/openapi.json"), {
+-          detail: { hide: true },
+-        })
+         .guard({ params: t.Object({ provider: t.String() }) }, (app) =>
+           app
+             .resolve(({ params, requestId, timestamp }) => ({
+@@ -220,13 +137,6 @@ export function createApp({ registry, mcpHandler, partnerAds }: AppDeps) {
+                   200: HealthResponse,
+                   404: ErrorResponse,
+                 },
+-                detail: {
+-                  tags: ["Health"],
+-                  summary: "프로바이더 상태 확인",
+-                  description:
+-                    "프로바이더에 저장된 식단 문서 수와 마지막 갱신 시각을 반환합니다. 데이터가 최신인지 모니터링할 때 사용하세요. 참고로 `database.connected`는 실시간 ping이 아니라 항상 `true`입니다.",
+-                  operationId: "getHealth",
+-                },
+               },
+             )
+             .get(
+@@ -255,22 +165,6 @@ export function createApp({ registry, mcpHandler, partnerAds }: AppDeps) {
+                   200: SearchResponse,
+                   404: ErrorResponse,
+                 },
+-                detail: {
+-                  tags: ["Search"],
+-                  summary: "메뉴 사진 검색",
+-                  description: [
+-                    "메뉴 이름으로 가장 최근에 나온 급식 사진을 찾아줍니다. 예를 들어 `김치전`을 검색하면 김치전이 나왔던 날짜와 그날의 사진을 반환합니다.",
+-                    "",
+-                    `현재 지원 프로바이더: ${
+-                      registry
+-                        .getProviders()
+-                        .filter((provider) => provider.config.presentation.features.foodSearch)
+-                        .map((provider) => `\`${provider.config.id}\``)
+-                        .join(", ") || "없음"
+-                    }`,
+-                  ].join("\n"),
+-                  operationId: "searchFood",
+-                },
+               },
+             )
+             .get(
+@@ -301,21 +195,6 @@ export function createApp({ registry, mcpHandler, partnerAds }: AppDeps) {
+                   400: ErrorResponse,
+                   404: ErrorResponse,
+                 },
+-                detail: {
+-                  tags: ["Meals"],
+-                  summary: "날짜별 식단 조회",
+-                  description: [
+-                    "지정한 날짜의 식단을 반환합니다. 끼니 순서는 카탈로그의 `meals` 배열과 동일합니다.",
+-                    "",
 -                    "프로바이더마다 그룹 구성이 조금 다릅니다.",
 -                    "",
-                     "- **kdmhs** — `regular` / `plus` / `simple` 그룹, 칼로리(`kcal`)와 급식 사진(`image`) 포함",
+-                    "- **kdmhs** — `regular` / `plus` / `simple` 그룹, 칼로리(`kcal`)와 급식 사진(`image`) 포함",
 -                    "- **dgu · horang** — 코너 이름이 그룹이 되고 가격(`price`) 포함",
-                     "",
-                     `식단이 없으면 조회 범위 밖은 "${MEAL_ERROR_MESSAGES.noMealData}", 범위 안 빈 날짜(방학·휴무 등)는 "${MEAL_ERROR_MESSAGES.noMealOperation}".`,
-                   ].join("\n"),
-@@ -345,7 +294,7 @@ export function createApp({ registry, mcpHandler, partnerAds }: AppDeps) {
-               "",
-               "**잘 쓰는 법**",
-               "- 시간대는 항상 KST. `오늘`/`내일`은 호출 전에 `YYYY-MM-DD`로 바꿉니다",
+-                    "",
+-                    `식단이 없으면 조회 범위 밖은 "${MEAL_ERROR_MESSAGES.noMealData}", 범위 안 빈 날짜(방학·휴무 등)는 "${MEAL_ERROR_MESSAGES.noMealOperation}".`,
+-                  ].join("\n"),
+-                  operationId: "getMeals",
+-                },
+               },
+             ),
+         ),
+@@ -332,40 +211,12 @@ export function createApp({ registry, mcpHandler, partnerAds }: AppDeps) {
+         )
+         .post("/mcp", ({ request }) => mcpHandler.fetch(request), {
+           parse: "none",
+-          detail: {
+-            tags: ["MCP"],
+-            summary: "MCP 엔드포인트 (Streamable HTTP)",
+-            description: [
+-              "Cursor·Claude 같은 에이전트가 식단을 바로 읽게 하는 MCP 엔드포인트입니다. 인증 없이 Streamable HTTP로 연결됩니다. 사용자가 오늘 점심, 특정 학교 메뉴, 급식 사진을 묻거나 식단을 근거로 답해야 하면 — 학교 이름을 말하지 않아도 — 이 서버를 쓰면 됩니다.",
+-              "",
+-              "**언제 어떤 도구**",
+-              "- `bap_list_providers` — 식당 id·끼니 슬롯·사진검색 지원 여부를 확정. 세션에서 한 번이면 충분합니다",
+-              "- `bap_get_meals` — 하루(또는 한 끼) 식단. 식단 질의의 기본 도구",
+-              "- `bap_search_food` — 메뉴 이름으로 과거 급식 사진. 오늘 메뉴 목록이 아닙니다",
+-              "",
+-              "**잘 쓰는 법**",
+-              "- 시간대는 항상 KST. `오늘`/`내일`은 호출 전에 `YYYY-MM-DD`로 바꿉니다",
 -              "- `provider`는 id(`kdmhs`, `dgu`, `horang`) 또는 이름(디미고, 동국대, 호랑). 애매하면 목록을 보고 id로 다시 호출하세요",
-+              "- `provider`는 id(`kdmhs`) 또는 이름(디미고)을 사용하세요",
-               "- 한 식당·하루에 한 호출. 여러 날은 날짜마다 따로",
-               "",
-               "**리소스** — `bap://providers`, `bap://meals/{provider}/{date}`",
+-              "- 한 식당·하루에 한 호출. 여러 날은 날짜마다 따로",
+-              "",
+-              "**리소스** — `bap://providers`, `bap://meals/{provider}/{date}`",
+-              "",
+-              "**연결 설정**",
+-              "",
+-              "```json",
+-              `{ "mcpServers": { "밥.net": { "url": "${CONFIG.PUBLIC_API_URL}/mcp" } } }`,
+-              "```",
+-            ].join("\n"),
+-            operationId: "mcp",
+-          },
+         })
+         .get("/mcp", ({ request }) => mcpHandler.fetch(request), {
+           parse: "none",
+-          detail: { hide: true },
+         })
+         .delete("/mcp", ({ request }) => mcpHandler.fetch(request), {
+           parse: "none",
+-          detail: { hide: true },
+         }),
+     );
+ }
 diff --git a/src/http/models.ts b/src/http/models.ts
-index 850d0b036f45a58011e02b6769126def8cd7ee14..d8ea64dee95c7ce5eb4d871a353562503a66e0b5 100644
+index 850d0b036f45a58011e02b6769126def8cd7ee14..c4e8b949ca3fc6afe72117d84d5d6ccc51eb49cd 100644
 --- a/src/http/models.ts
 +++ b/src/http/models.ts
 @@ -34,7 +34,6 @@ export const SitePresentation = t.Object(
@@ -683,36 +871,86 @@ index 850d0b036f45a58011e02b6769126def8cd7ee14..d8ea64dee95c7ce5eb4d871a35356250
      features: t.Object({
        foodSearch: t.Boolean(),
      }),
+@@ -119,16 +118,3 @@ export const HealthResponse = t.Object(
+   },
+   { title: "HealthResponse" },
+ );
+-
+-export const apiModels = {
+-  ErrorResponse,
+-  MealSlotMeta,
+-  SitePresentation,
+-  CatalogResponse,
+-  PublicMenuGroup,
+-  PublicMeal,
+-  PublicDayMenu,
+-  MealResponse,
+-  SearchResponse,
+-  HealthResponse,
+-};
 diff --git a/src/http/openapi.ts b/src/http/openapi.ts
-index 8cd005a0894604d92371fb1ebe95371c45db7388..e724e43f1f9b3f057ed8c90713e16413106bb4f8 100644
+deleted file mode 100644
+index 8cd005a0894604d92371fb1ebe95371c45db7388..0000000000000000000000000000000000000000
 --- a/src/http/openapi.ts
-+++ b/src/http/openapi.ts
-@@ -10,9 +10,9 @@ export function openapiInfo(registry: ProviderRegistry) {
-     title: "밥.net API",
-     version: APP_VERSION,
-     description: [
++++ /dev/null
+@@ -1,57 +0,0 @@
+-import { CONFIG } from "@/core/config";
+-import { APP_VERSION } from "@/core/version";
+-import type { ProviderRegistry } from "@/providers/registry";
+-
+-export function openapiInfo(registry: ProviderRegistry) {
+-  const ids = registry.getProviders().map((provider) => provider.config.id);
+-  const providerList = ids.length > 0 ? ids.join(", ") : "등록된 프로바이더 없음";
+-
+-  return {
+-    title: "밥.net API",
+-    version: APP_VERSION,
+-    description: [
 -      "오늘 뭐 나오지? 학교·식당 급식을 하나의 API로 조회하세요.",
-+      "오늘 뭐 나오지? 디미고 급식을 조회하세요.",
-       "",
+-      "",
 -      "어떤 프로바이더든 응답은 동일한 `PublicDayMenu` 스키마로 내려옵니다. 한 번 연동하면 새 학교가 추가돼도 코드를 고칠 필요가 없어요.",
-+      "디미고의 아침·점심·저녁 식단을 `PublicDayMenu` 스키마로 제공합니다.",
-       "",
-       "### 시작하기",
-       "",
-@@ -30,7 +30,6 @@ export function openapiInfo(registry: ProviderRegistry) {
-       "",
-       "MCP를 지원합니다. `POST /mcp` (Streamable HTTP) 하나면 Cursor·Claude 같은 에이전트가 식단을 읽을 수 있어요.",
-       "",
+-      "",
+-      "### 시작하기",
+-      "",
+-      "1. `GET /` — 사용 가능한 프로바이더 목록을 확인합니다.",
+-      "2. `GET /{provider}/{date}` — 원하는 날짜의 식단을 가져옵니다.",
+-      "",
+-      "### 알아두기",
+-      "",
+-      "- **날짜 형식** — `YYYY-MM-DD` (KST 기준)",
+-      "- **공통 응답 필드** — 모든 응답에 `requestId`, `timestamp`가 포함됩니다",
+-      `- **프로바이더** — ${providerList}`,
+-      "- **인증** — 필요 없습니다. 바로 호출하세요",
+-      "",
+-      "### AI 에이전트 연동",
+-      "",
+-      "MCP를 지원합니다. `POST /mcp` (Streamable HTTP) 하나면 Cursor·Claude 같은 에이전트가 식단을 읽을 수 있어요.",
+-      "",
 -      "새 학교를 추가하고 싶다면 [bap-back README](https://github.com/sspzoa/bap-back#새-프로바이더-추가)를 참고하세요.",
-     ].join("\n"),
-   };
- }
-@@ -53,5 +52,4 @@ export const openapiTags = [
-   { name: "Search", description: "메뉴 이름으로 과거 급식 사진 찾기 (`foodSearch` 지원 프로바이더 전용)" },
-   { name: "Health", description: "프로바이더별 데이터 적재 상태" },
-   { name: "MCP", description: "AI 에이전트용 Model Context Protocol 엔드포인트" },
+-    ].join("\n"),
+-  };
+-}
+-
+-export function openapiServers() {
+-  const servers = [{ url: CONFIG.PUBLIC_API_URL, description: "프로덕션" }];
+-  if (process.env.NODE_ENV !== "production") {
+-    servers.push({
+-      url: `http://${CONFIG.SERVER.HOST}:${CONFIG.SERVER.PORT}`,
+-      description: "로컬",
+-    });
+-  }
+-  return servers;
+-}
+-
+-export const openapiTags = [
+-  { name: "Catalog", description: "등록된 사이트와 화면 구성에 필요한 메타데이터" },
+-  { name: "Changelog", description: "semver별 사용자-facing 변경 이력" },
+-  { name: "Meals", description: "날짜별 식단 조회" },
+-  { name: "Search", description: "메뉴 이름으로 과거 급식 사진 찾기 (`foodSearch` 지원 프로바이더 전용)" },
+-  { name: "Health", description: "프로바이더별 데이터 적재 상태" },
+-  { name: "MCP", description: "AI 에이전트용 Model Context Protocol 엔드포인트" },
 -  { name: "Ads", description: "제휴 배너 노출·클릭 일별 카운터" },
- ];
+-];
 diff --git a/src/mcp/resolve.test.ts b/src/mcp/resolve.test.ts
 index 35b8e13f88d18dd136d238167e8904dc69cfa8b0..ded81259750a8bd6a2bfd311d30222b2198f2bda 100644
 --- a/src/mcp/resolve.test.ts

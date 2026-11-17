@@ -27,10 +27,10 @@ index 6eb579b7eb77ca435d331630158b445f75f7801d..189b5ecab34d43a6dd2fdaf4c903defd
          className="order-2 flex h-[54px] min-w-0 flex-1 cursor-pointer items-center justify-center duration-100 active:scale-95 active:opacity-50 md:order-2"
          onClick={onResetToToday}>
 diff --git a/src/app/(pages)/(home)/(routes)/page.tsx b/src/app/(pages)/(home)/(routes)/page.tsx
-index cb5d4ee2a910a2e43e2843029cd4c8504ff01bd2..e09eb8b21bf607ba261673f591199bd7e97abd3d 100644
+index cb5d4ee2a910a2e43e2843029cd4c8504ff01bd2..82d851f50efa07837c79d52e7032a3f790b1aec0 100644
 --- a/src/app/(pages)/(home)/(routes)/page.tsx
 +++ b/src/app/(pages)/(home)/(routes)/page.tsx
-@@ -1,20 +1,28 @@
+@@ -1,20 +1,29 @@
  import MealLayout from "@/shared/components/mealLayout";
 -import { SiteSelectView } from "@/shared/components/siteSelectView";
 -import { findSite, getCatalog } from "@/shared/lib/catalog";
@@ -42,6 +42,7 @@ index cb5d4ee2a910a2e43e2843029cd4c8504ff01bd2..e09eb8b21bf607ba261673f591199bd7
  import { getCurrentMealTiming } from "@/shared/utils/mealTimingUtils";
  import { formatToDateString } from "@/shared/utils/timeZoneUtils";
 -import { getSiteId } from "@/sites/server";
++import { BRAND } from "@/sites/config";
 +
 +export const dynamic = "force-dynamic";
  
@@ -55,7 +56,7 @@ index cb5d4ee2a910a2e43e2843029cd4c8504ff01bd2..e09eb8b21bf607ba261673f591199bd7
 -    return <SiteSelectView />;
 +    return (
 +      <main className="flex min-h-svh flex-col items-center justify-center gap-6 bg-[#1a120c] p-4 text-center">
-+        <h1 className="font-bold text-2xl">디미고 급식</h1>
++        <h1 className="font-bold text-2xl">{BRAND.title}</h1>
 +        <p role="status">디미고 급식 정보를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.</p>
 +        <a href="/" className="underline underline-offset-2">
 +          다시 시도
@@ -67,7 +68,7 @@ index cb5d4ee2a910a2e43e2843029cd4c8504ff01bd2..e09eb8b21bf607ba261673f591199bd7
  
    const formattedDate = formatToDateString(getInitialDateForServer());
 diff --git a/src/app/layout.tsx b/src/app/layout.tsx
-index b3993e4b2b7e7c09ac1cb7f4c8aa599c911bb17f..0f384d3831e17b27248869ea53b76f226599f5f0 100644
+index b3993e4b2b7e7c09ac1cb7f4c8aa599c911bb17f..305d39eb9cc7001f33ad015c18386c035a4e0726 100644
 --- a/src/app/layout.tsx
 +++ b/src/app/layout.tsx
 @@ -3,11 +3,10 @@ import type { ReactNode } from "react";
@@ -103,6 +104,46 @@ index b3993e4b2b7e7c09ac1cb7f4c8aa599c911bb17f..0f384d3831e17b27248869ea53b76f22
        alternates: { canonical: FALLBACK_METADATA.url },
        openGraph: {
          type: "website",
+@@ -47,11 +44,11 @@ export async function generateMetadata(): Promise<Metadata> {
+   return {
+     metadataBase: new URL(BRAND.url),
+     title: {
+-      default: site.name,
+-      template: `%s | ${site.name}`,
++      default: BRAND.title,
++      template: `%s | ${BRAND.title}`,
+     },
+     description: site.description,
+-    applicationName: site.name,
++    applicationName: BRAND.title,
+     keywords: site.keywords,
+     alternates: {
+       canonical: BRAND.url,
+@@ -62,20 +59,20 @@ export async function generateMetadata(): Promise<Metadata> {
+     },
+     appleWebApp: {
+       capable: true,
+-      title: site.name,
++      title: BRAND.title,
+       statusBarStyle: "black-translucent",
+     },
+     openGraph: {
+       type: "website",
+       locale: "ko_KR",
+       url: BRAND.url,
+-      siteName: site.name,
+-      title: site.name,
++      siteName: BRAND.title,
++      title: BRAND.title,
+       description: site.description,
+     },
+     twitter: {
+       card: "summary_large_image",
+-      title: site.name,
++      title: BRAND.title,
+       description: site.description,
+     },
+   };
 @@ -109,27 +106,18 @@ interface RootLayoutProps {
  }
  
@@ -125,7 +166,8 @@ index b3993e4b2b7e7c09ac1cb7f4c8aa599c911bb17f..0f384d3831e17b27248869ea53b76f22
 -        )}
        </head>
        <body className="antialiased">
-         {site && <JsonLd name={site.name} description={site.description} url={BRAND.url} />}
+-        {site && <JsonLd name={site.name} description={site.description} url={BRAND.url} />}
++        {site && <JsonLd name={BRAND.title} description={site.description} url={BRAND.url} />}
          <Analytics />
          <SpeedInsights />
 -        <SiteProvider siteId={site?.id ?? null} site={site} catalog={catalog}>
@@ -134,10 +176,10 @@ index b3993e4b2b7e7c09ac1cb7f4c8aa599c911bb17f..0f384d3831e17b27248869ea53b76f22
          </SiteProvider>
        </body>
 diff --git a/src/app/manifest.ts b/src/app/manifest.ts
-index 8a502ccbc3bc43f39d54f8d58c61b96391cca7e1..5843496ca3157eb264f02ae860ed709c0530f79c 100644
+index 8a502ccbc3bc43f39d54f8d58c61b96391cca7e1..11c249f6bf1fa0ef5dcb3df07ec5894f83c9b9ea 100644
 --- a/src/app/manifest.ts
 +++ b/src/app/manifest.ts
-@@ -1,12 +1,9 @@
+@@ -1,13 +1,10 @@
  import type { MetadataRoute } from "next";
 -import { findSite, getCatalog } from "@/shared/lib/catalog";
 +import { getCatalog } from "@/shared/lib/catalog";
@@ -148,15 +190,66 @@ index 8a502ccbc3bc43f39d54f8d58c61b96391cca7e1..5843496ca3157eb264f02ae860ed709c
 -  const siteId = await getSiteId();
 -  const catalog = await getCatalog();
 -  const site = findSite(catalog, siteId);
+-  const name = site?.name ?? BRAND.title;
 +  const site = (await getCatalog())[0] ?? null;
-   const name = site?.name ?? BRAND.title;
++  const name = BRAND.title;
    const description = site?.description ?? BRAND.tagline;
  
+   return {
+diff --git a/src/app/opengraph-image.tsx b/src/app/opengraph-image.tsx
+index a80b2dacd5046c73d1734851dfd23c0643dc455b..df5d1d5d1b9f71b56d72fd838885029ce42b80ef 100644
+--- a/src/app/opengraph-image.tsx
++++ b/src/app/opengraph-image.tsx
+@@ -1,7 +1,8 @@
+ import { OG_SIZE, renderOgCard } from "@/shared/lib/ogCard";
++import { BRAND } from "@/sites/config";
+ 
+ export const runtime = "nodejs";
+-export const alt = "밥.net";
++export const alt = BRAND.title;
+ export const size = OG_SIZE;
+ export const contentType = "image/png";
+ export const revalidate = 3600;
+diff --git a/src/app/sitemap.ts b/src/app/sitemap.ts
+index 7d45547f5013c001893a072a20218c534e7e037d..dbdc5197d7f98d2d7f05aa6d66d11a67332bd794 100644
+--- a/src/app/sitemap.ts
++++ b/src/app/sitemap.ts
+@@ -1,5 +1,4 @@
+ import type { MetadataRoute } from "next";
+-import { API_BASE_URL_DISPLAY } from "@/shared/lib/apiBase";
+ import { BRAND } from "@/sites/config";
+ 
+ export default function sitemap(): MetadataRoute.Sitemap {
+@@ -12,11 +11,5 @@ export default function sitemap(): MetadataRoute.Sitemap {
+       changeFrequency: "daily",
+       priority: 1,
+     },
+-    {
+-      url: `${API_BASE_URL_DISPLAY}/docs`,
+-      lastModified: now,
+-      changeFrequency: "monthly",
+-      priority: 0.4,
+-    },
+   ];
+ }
+diff --git a/src/app/twitter-image.tsx b/src/app/twitter-image.tsx
+index eada390d86c60d6e36912a49eae3d2ab0de7afef..4340bf5a71bf6304aa0c37a3476602401bd0fa8f 100644
+--- a/src/app/twitter-image.tsx
++++ b/src/app/twitter-image.tsx
+@@ -1,5 +1,7 @@
++import { BRAND } from "@/sites/config";
++
+ export const runtime = "nodejs";
+-export const alt = "밥.net";
++export const alt = BRAND.title;
+ export const size = { width: 1200, height: 630 };
+ export const contentType = "image/png";
+ export const revalidate = 3600;
 diff --git a/src/proxy.test.ts b/src/proxy.test.ts
-index 14f31a79d813336cee0329d3e59190e820cf452b..0aa23e01ec9dc1bb6979394319add57e1017a9d2 100644
+index 14f31a79d813336cee0329d3e59190e820cf452b..c753430b929409a21cd7f1ef310c7281d1ee0900 100644
 --- a/src/proxy.test.ts
 +++ b/src/proxy.test.ts
-@@ -1,67 +1,41 @@
+@@ -1,67 +1,46 @@
  import { describe, expect, test } from "bun:test";
  import { NextRequest } from "next/server";
  import { proxy } from "@/proxy";
@@ -183,7 +276,6 @@ index 14f31a79d813336cee0329d3e59190e820cf452b..0aa23e01ec9dc1bb6979394319add57e
 -
 -  test("/?home=1 expires the preference cookie and ignores the leftover site", async () => {
 -    const response = proxy(request(`/?${HOME_QUERY_PARAM}=1`, "dgu"));
-+import { API_BASE_URL } from "@/shared/lib/apiBase";
  
 +describe("single-school routing", () => {
 +  test("opens home without selecting a school", () => {
@@ -223,15 +315,21 @@ index 14f31a79d813336cee0329d3e59190e820cf452b..0aa23e01ec9dc1bb6979394319add57e
 -
 -    expect(response.status).toBe(200);
 -    expect(response.headers.get("x-middleware-override-headers")).toContain("x-site-id");
--  });
--
++  test("redirects legacy school paths to home", () => {
++    for (const path of ["/kdmhs", "/horang", "/dgu"]) {
++      const response = proxy(new NextRequest(`http://localhost${path}`));
++      expect(response.status).toBe(307);
++      expect(response.headers.get("location")).toBe("http://localhost/");
++    }
+   });
+ 
 -  test("lets partner ad images through instead of sending them home", () => {
 -    const response = proxy(request("/ads/kdmhs/mobile.png"));
 -
 -    expect(response.status).toBe(200);
 -    expect(response.headers.get("location")).toBeNull();
-+  test("redirects legacy school paths to home", () => {
-+    for (const path of ["/kdmhs", "/horang", "/dgu"]) {
++  test("redirects removed documentation paths home", () => {
++    for (const path of ["/docs", "/docs/openapi.json", "/openapi.json"]) {
 +      const response = proxy(new NextRequest(`http://localhost${path}`));
 +      expect(response.status).toBe(307);
 +      expect(response.headers.get("location")).toBe("http://localhost/");
@@ -243,21 +341,19 @@ index 14f31a79d813336cee0329d3e59190e820cf452b..0aa23e01ec9dc1bb6979394319add57e
 -
 -    expect(response.status).toBe(200);
 -    expect(response.headers.get("x-middleware-override-headers")).toContain("x-site-id");
-+  test("keeps API documentation and metadata reachable", () => {
-+    const docs = proxy(new NextRequest("http://localhost/docs"));
-+    expect(docs.headers.get("location")).toBe(new URL("/docs", API_BASE_URL).href);
++  test("keeps metadata reachable", () => {
 +    for (const path of ["/manifest.webmanifest", "/sitemap.xml", "/opengraph-image", "/twitter-image"]) {
 +      expect(proxy(new NextRequest(`http://localhost${path}`)).status).toBe(200);
 +    }
    });
  });
 diff --git a/src/proxy.ts b/src/proxy.ts
-index 375148da2086aa986231ce385766a247990cc775..a2a4660b65bdf07cabed4cfc1f7fc991b182f5ea 100644
+index 375148da2086aa986231ce385766a247990cc775..a0245513f58162a6651eb42f5aefcf9c153a6a0f 100644
 --- a/src/proxy.ts
 +++ b/src/proxy.ts
-@@ -1,92 +1,26 @@
+@@ -1,92 +1,21 @@
  import { type NextRequest, NextResponse } from "next/server";
- import { API_BASE_URL } from "@/shared/lib/apiBase";
+-import { API_BASE_URL } from "@/shared/lib/apiBase";
 -import {
 -  expireSitePreferenceCookies,
 -  HOME_QUERY_PARAM,
@@ -274,14 +370,11 @@ index 375148da2086aa986231ce385766a247990cc775..a2a4660b65bdf07cabed4cfc1f7fc991
 -  if (cookies.length === 0) {
 -    return null;
 -  }
-+export function proxy(request: NextRequest) {
-+  const pathname = request.nextUrl.pathname;
- 
+-
 -  return readSitePreference(cookies[cookies.length - 1]?.value);
 -}
-+  if (pathname === "/docs" || pathname.startsWith("/docs/")) {
-+    return NextResponse.redirect(new URL("/docs", API_BASE_URL));
-+  }
++export function proxy(request: NextRequest) {
++  const pathname = request.nextUrl.pathname;
  
 -function isKnownPath(pathname: string): boolean {
 -  return (
@@ -913,11 +1006,10 @@ index 5c703a7ec14e97b95b291affd33a4355580d9e52..00000000000000000000000000000000
 -});
 diff --git a/src/shared/components/siteFooter.tsx b/src/shared/components/siteFooter.tsx
 new file mode 100644
-index 0000000000000000000000000000000000000000..f93153595d82d338e12b081b17b043d4956e4f01
+index 0000000000000000000000000000000000000000..0e5be92853515029a78df3a0f408bf0cf06eae6a
 --- /dev/null
 +++ b/src/shared/components/siteFooter.tsx
-@@ -0,0 +1,33 @@
-+import { API_BASE_URL } from "@/shared/lib/apiBase";
+@@ -0,0 +1,28 @@
 +import { BRAND } from "@/sites/config";
 +
 +export function SiteFooter() {
@@ -941,10 +1033,6 @@ index 0000000000000000000000000000000000000000..f93153595d82d338e12b081b17b043d4
 +        ,{" "}
 +        <a href="https://github.com/vvcnyy" className="underline">
 +          vvcnyy
-+        </a>
-+        {" · "}
-+        <a href={`${API_BASE_URL}/docs`} className="underline">
-+          API 문서
 +        </a>
 +      </p>
 +    </footer>
@@ -1263,6 +1351,16 @@ index 06cb99b84bf5ece8c776a8b3418c394956439b7e..00000000000000000000000000000000
 -
 -  return mobileUnit ? { unit: mobileUnit, ...ADFIT_MOBILE_SIZE } : null;
 -}
+diff --git a/src/shared/lib/apiBase.ts b/src/shared/lib/apiBase.ts
+index e3cd63dacb0f26a0471bdce6d55aca356964b644..f24e02b64a030a0b872583acdea745cbd33fd3eb 100644
+--- a/src/shared/lib/apiBase.ts
++++ b/src/shared/lib/apiBase.ts
+@@ -1,5 +1,2 @@
+ /** Punycode default matches production; override with NEXT_PUBLIC_API_BASE_URL for local/staging. */
+ export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "https://api.xn--rh3b.net";
+-
+-/** Human-readable production URL (same host as API_BASE_URL default). */
+-export const API_BASE_URL_DISPLAY = "https://api.밥.net";
 diff --git a/src/shared/lib/catalog.test.ts b/src/shared/lib/catalog.test.ts
 new file mode 100644
 index 0000000000000000000000000000000000000000..29c2930001fdd3ec7a0be32c00e38000fcc70508
@@ -1593,14 +1691,14 @@ index 1a6761a41f64d5cfecab9435b0d85acb44663139..6bf0c09632766eabb74321e735d67e6e
    meals: MealSlotMeta[];
  }
 diff --git a/src/sites/config.ts b/src/sites/config.ts
-index b1a3a888583f8d4aa0bdfe59be9e62c97fc190d2..ff853a752a50b7d0bbce35475341286cf1bd82dc 100644
+index b1a3a888583f8d4aa0bdfe59be9e62c97fc190d2..66cdab6f7e23fd96e3507d2b7bf64285afee20e5 100644
 --- a/src/sites/config.ts
 +++ b/src/sites/config.ts
 @@ -1,6 +1,6 @@
  export const BRAND = {
 -  title: "밥.net",
 -  tagline: "오늘의 메뉴를 확인해보세요",
-+  title: "디미고 급식",
++  title: "밥.xyz",
 +  tagline: "디미고의 오늘 급식을 확인해보세요",
    url: "https://밥.net",
    version: "2.3.0",
