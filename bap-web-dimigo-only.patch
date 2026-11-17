@@ -1,0 +1,1887 @@
+diff --git a/public/ads.txt b/public/ads.txt
+deleted file mode 100644
+index 50747ca85b46ad1483f679b7fe72af7baaf6a98d..0000000000000000000000000000000000000000
+--- a/public/ads.txt
++++ /dev/null
+@@ -1 +0,0 @@
+-google.com, pub-2186209581588169, DIRECT, f08c47fec0942fa0
+diff --git a/src/app/(pages)/(home)/(components)/mealNavigationBar.tsx b/src/app/(pages)/(home)/(components)/mealNavigationBar.tsx
+index 6eb579b7eb77ca435d331630158b445f75f7801d..189b5ecab34d43a6dd2fdaf4c903defd4bdc9337 100644
+--- a/src/app/(pages)/(home)/(components)/mealNavigationBar.tsx
++++ b/src/app/(pages)/(home)/(components)/mealNavigationBar.tsx
+@@ -1,7 +1,6 @@
+ import Image from "next/image";
+ import { memo } from "react";
+ import Glass from "@/shared/components/common/glass";
+-import { SiteSelectButton } from "@/shared/components/siteSelectButton";
+ 
+ interface MealNavigationBarProps {
+   onPrevDay: () => void;
+@@ -18,8 +17,6 @@ export const MealNavigationBar = memo(function MealNavigationBar({
+ }: MealNavigationBarProps) {
+   return (
+     <div className="flex flex-row gap-4 px-4 md:px-0">
+-      <SiteSelectButton className="hidden md:order-1 md:block" />
+-
+       <Glass
+         className="order-2 flex h-[54px] min-w-0 flex-1 cursor-pointer items-center justify-center duration-100 active:scale-95 active:opacity-50 md:order-2"
+         onClick={onResetToToday}>
+diff --git a/src/app/(pages)/(home)/(routes)/page.tsx b/src/app/(pages)/(home)/(routes)/page.tsx
+index cb5d4ee2a910a2e43e2843029cd4c8504ff01bd2..e09eb8b21bf607ba261673f591199bd7e97abd3d 100644
+--- a/src/app/(pages)/(home)/(routes)/page.tsx
++++ b/src/app/(pages)/(home)/(routes)/page.tsx
+@@ -1,20 +1,28 @@
+ import MealLayout from "@/shared/components/mealLayout";
+-import { SiteSelectView } from "@/shared/components/siteSelectView";
+-import { findSite, getCatalog } from "@/shared/lib/catalog";
++import { SiteFooter } from "@/shared/components/siteFooter";
++import { getCatalog } from "@/shared/lib/catalog";
+ import { getMealDataServerSide } from "@/shared/lib/mealService";
+ import type { PublicDayMenu } from "@/shared/types/index";
+ import { getInitialDateForServer } from "@/shared/utils/dateUtils";
+ import { getCurrentMealTiming } from "@/shared/utils/mealTimingUtils";
+ import { formatToDateString } from "@/shared/utils/timeZoneUtils";
+-import { getSiteId } from "@/sites/server";
++
++export const dynamic = "force-dynamic";
+ 
+ export default async function Page() {
+-  const siteId = await getSiteId();
+-  const catalog = await getCatalog();
+-  const site = findSite(catalog, siteId);
++  const site = (await getCatalog())[0] ?? null;
+ 
+   if (!site) {
+-    return <SiteSelectView />;
++    return (
++      <main className="flex min-h-svh flex-col items-center justify-center gap-6 bg-[#1a120c] p-4 text-center">
++        <h1 className="font-bold text-2xl">디미고 급식</h1>
++        <p role="status">디미고 급식 정보를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.</p>
++        <a href="/" className="underline underline-offset-2">
++          다시 시도
++        </a>
++        <SiteFooter />
++      </main>
++    );
+   }
+ 
+   const formattedDate = formatToDateString(getInitialDateForServer());
+diff --git a/src/app/layout.tsx b/src/app/layout.tsx
+index b3993e4b2b7e7c09ac1cb7f4c8aa599c911bb17f..0f384d3831e17b27248869ea53b76f226599f5f0 100644
+--- a/src/app/layout.tsx
++++ b/src/app/layout.tsx
+@@ -3,11 +3,10 @@ import type { ReactNode } from "react";
+ import "./globals.css";
+ import { Analytics } from "@vercel/analytics/next";
+ import { SpeedInsights } from "@vercel/speed-insights/next";
+-import { findSite, getCatalog } from "@/shared/lib/catalog";
++import { getCatalog } from "@/shared/lib/catalog";
+ import QueryProvider from "@/shared/lib/provider";
+ import { BRAND } from "@/sites/config";
+ import { SiteProvider } from "@/sites/context";
+-import { getSiteId } from "@/sites/server";
+ 
+ const FALLBACK_METADATA = {
+   title: BRAND.title,
+@@ -16,9 +15,7 @@ const FALLBACK_METADATA = {
+ };
+ 
+ export async function generateMetadata(): Promise<Metadata> {
+-  const siteId = await getSiteId();
+-  const catalog = await getCatalog();
+-  const site = findSite(catalog, siteId);
++  const site = (await getCatalog())[0] ?? null;
+ 
+   if (!site) {
+     return {
+@@ -26,7 +23,7 @@ export async function generateMetadata(): Promise<Metadata> {
+       title: FALLBACK_METADATA.title,
+       description: FALLBACK_METADATA.description,
+       applicationName: FALLBACK_METADATA.title,
+-      keywords: ["식단", "급식", "학식", "구내식당", "밥.net"],
++      keywords: ["디미고", "한국디지털미디어고등학교", "식단", "급식"],
+       alternates: { canonical: FALLBACK_METADATA.url },
+       openGraph: {
+         type: "website",
+@@ -109,27 +106,18 @@ interface RootLayoutProps {
+ }
+ 
+ export default async function RootLayout({ children }: RootLayoutProps) {
+-  const siteId = await getSiteId();
+-  const catalog = await getCatalog();
+-  const site = findSite(catalog, siteId);
++  const site = (await getCatalog())[0] ?? null;
+ 
+   return (
+     <html lang="ko">
+       <head>
+         {site?.googleSiteVerification && <meta name="google-site-verification" content={site.googleSiteVerification} />}
+-        {site?.adsenseClient && (
+-          <script
+-            async
+-            src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${site.adsenseClient}`}
+-            crossOrigin="anonymous"
+-          />
+-        )}
+       </head>
+       <body className="antialiased">
+         {site && <JsonLd name={site.name} description={site.description} url={BRAND.url} />}
+         <Analytics />
+         <SpeedInsights />
+-        <SiteProvider siteId={site?.id ?? null} site={site} catalog={catalog}>
++        <SiteProvider site={site}>
+           <QueryProvider>{children}</QueryProvider>
+         </SiteProvider>
+       </body>
+diff --git a/src/app/manifest.ts b/src/app/manifest.ts
+index 8a502ccbc3bc43f39d54f8d58c61b96391cca7e1..5843496ca3157eb264f02ae860ed709c0530f79c 100644
+--- a/src/app/manifest.ts
++++ b/src/app/manifest.ts
+@@ -1,12 +1,9 @@
+ import type { MetadataRoute } from "next";
+-import { findSite, getCatalog } from "@/shared/lib/catalog";
++import { getCatalog } from "@/shared/lib/catalog";
+ import { BRAND } from "@/sites/config";
+-import { getSiteId } from "@/sites/server";
+ 
+ export default async function manifest(): Promise<MetadataRoute.Manifest> {
+-  const siteId = await getSiteId();
+-  const catalog = await getCatalog();
+-  const site = findSite(catalog, siteId);
++  const site = (await getCatalog())[0] ?? null;
+   const name = site?.name ?? BRAND.title;
+   const description = site?.description ?? BRAND.tagline;
+ 
+diff --git a/src/proxy.test.ts b/src/proxy.test.ts
+index 14f31a79d813336cee0329d3e59190e820cf452b..0aa23e01ec9dc1bb6979394319add57e1017a9d2 100644
+--- a/src/proxy.test.ts
++++ b/src/proxy.test.ts
+@@ -1,67 +1,41 @@
+ import { describe, expect, test } from "bun:test";
+ import { NextRequest } from "next/server";
+ import { proxy } from "@/proxy";
+-import { HOME_QUERY_PARAM, SITE_PREFERENCE_COOKIE, SITE_QUERY_PARAM } from "@/shared/lib/sitePreference";
+-
+-function request(path: string, cookie?: string) {
+-  return new NextRequest(`http://localhost${path}`, {
+-    headers: cookie ? { cookie: `${SITE_PREFERENCE_COOKIE}=${cookie}` } : undefined,
+-  });
+-}
+-
+-function setCookieHeaders(response: Response) {
+-  return response.headers.getSetCookie?.() ?? [];
+-}
+-
+-describe("proxy", () => {
+-  test("/?site= sets the preference cookie and redirects home", async () => {
+-    const response = proxy(request(`/?${SITE_QUERY_PARAM}=kdmhs`));
+-
+-    expect(response.status).toBe(307);
+-    expect(response.headers.get("location")).toBe("http://localhost/");
+-    expect(setCookieHeaders(response).join("\n")).toContain(`${SITE_PREFERENCE_COOKIE}=kdmhs`);
+-  });
+-
+-  test("/?home=1 expires the preference cookie and ignores the leftover site", async () => {
+-    const response = proxy(request(`/?${HOME_QUERY_PARAM}=1`, "dgu"));
++import { API_BASE_URL } from "@/shared/lib/apiBase";
+ 
++describe("single-school routing", () => {
++  test("opens home without selecting a school", () => {
++    const response = proxy(new NextRequest("http://localhost/"));
+     expect(response.status).toBe(200);
+     expect(response.headers.get("location")).toBeNull();
+-    expect(response.headers.get("x-middleware-override-headers") ?? "").not.toContain("x-site-id");
+-    expect(setCookieHeaders(response).join("\n")).toMatch(new RegExp(`${SITE_PREFERENCE_COOKIE}=;`));
+-    expect(setCookieHeaders(response).join("\n")).toMatch(/Max-Age=0/i);
+   });
+ 
+-  test("/?home=1 also expires legacy domain cookies on 밥.net hosts", async () => {
+-    const response = proxy(new NextRequest(`https://xn--rh3b.net/?${HOME_QUERY_PARAM}=1`));
+-
+-    const cookies = setCookieHeaders(response).join("\n");
+-    expect(cookies).toMatch(/Domain=\.xn--rh3b\.net/i);
+-    expect(cookies).toMatch(/Max-Age=0/i);
++  test("ignores previous school cookies, headers, and selection links", () => {
++    for (const path of ["/", "/?site=horang", "/?home=1"]) {
++      const response = proxy(
++        new NextRequest(`http://localhost${path}`, {
++          headers: { cookie: "bap-site-id=dgu", "x-site-id": "horang" },
++        }),
++      );
++      expect(response.status).toBe(200);
++      expect(response.headers.get("set-cookie")).toBeNull();
++      expect(response.headers.get("location")).toBeNull();
++    }
+   });
+ 
+-  test("prefers the latest cookie when duplicates exist", async () => {
+-    const response = proxy(
+-      new NextRequest("http://localhost/", {
+-        headers: { cookie: `${SITE_PREFERENCE_COOKIE}=dgu; ${SITE_PREFERENCE_COOKIE}=kdmhs` },
+-      }),
+-    );
+-
+-    expect(response.status).toBe(200);
+-    expect(response.headers.get("x-middleware-override-headers")).toContain("x-site-id");
+-  });
+-
+-  test("lets partner ad images through instead of sending them home", () => {
+-    const response = proxy(request("/ads/kdmhs/mobile.png"));
+-
+-    expect(response.status).toBe(200);
+-    expect(response.headers.get("location")).toBeNull();
++  test("redirects legacy school paths to home", () => {
++    for (const path of ["/kdmhs", "/horang", "/dgu"]) {
++      const response = proxy(new NextRequest(`http://localhost${path}`));
++      expect(response.status).toBe(307);
++      expect(response.headers.get("location")).toBe("http://localhost/");
++    }
+   });
+ 
+-  test("forwards the cookie as x-site-id on /", async () => {
+-    const response = proxy(request("/", "dgu"));
+-
+-    expect(response.status).toBe(200);
+-    expect(response.headers.get("x-middleware-override-headers")).toContain("x-site-id");
++  test("keeps API documentation and metadata reachable", () => {
++    const docs = proxy(new NextRequest("http://localhost/docs"));
++    expect(docs.headers.get("location")).toBe(new URL("/docs", API_BASE_URL).href);
++    for (const path of ["/manifest.webmanifest", "/sitemap.xml", "/opengraph-image", "/twitter-image"]) {
++      expect(proxy(new NextRequest(`http://localhost${path}`)).status).toBe(200);
++    }
+   });
+ });
+diff --git a/src/proxy.ts b/src/proxy.ts
+index 375148da2086aa986231ce385766a247990cc775..a2a4660b65bdf07cabed4cfc1f7fc991b182f5ea 100644
+--- a/src/proxy.ts
++++ b/src/proxy.ts
+@@ -1,92 +1,26 @@
+ import { type NextRequest, NextResponse } from "next/server";
+ import { API_BASE_URL } from "@/shared/lib/apiBase";
+-import {
+-  expireSitePreferenceCookies,
+-  HOME_QUERY_PARAM,
+-  isDocsPath,
+-  readSitePreference,
+-  readSiteQueryParam,
+-  SITE_PREFERENCE_COOKIE,
+-  SITE_PREFERENCE_COOKIE_OPTIONS,
+-  SITE_QUERY_PARAM,
+-} from "@/shared/lib/sitePreference";
+ 
+-function readPreferredSiteId(request: NextRequest): string | null {
+-  const cookies = request.cookies.getAll(SITE_PREFERENCE_COOKIE);
+-  if (cookies.length === 0) {
+-    return null;
+-  }
++export function proxy(request: NextRequest) {
++  const pathname = request.nextUrl.pathname;
+ 
+-  return readSitePreference(cookies[cookies.length - 1]?.value);
+-}
++  if (pathname === "/docs" || pathname.startsWith("/docs/")) {
++    return NextResponse.redirect(new URL("/docs", API_BASE_URL));
++  }
+ 
+-function isKnownPath(pathname: string): boolean {
+-  return (
++  if (
+     pathname === "/" ||
+-    isDocsPath(pathname) ||
+     pathname === "/sitemap.xml" ||
+     pathname === "/manifest.webmanifest" ||
+     pathname.startsWith("/opengraph-image") ||
+     pathname.startsWith("/twitter-image")
+-  );
+-}
+-
+-function nextWithHeaders(request: NextRequest, siteId: string | null) {
+-  const requestHeaders = new Headers(request.headers);
+-  requestHeaders.set("x-pathname", request.nextUrl.pathname);
+-
+-  if (siteId) {
+-    requestHeaders.set("x-site-id", siteId);
+-  } else {
+-    requestHeaders.delete("x-site-id");
+-  }
+-
+-  return NextResponse.next({
+-    request: { headers: requestHeaders },
+-  });
+-}
+-
+-export function proxy(request: NextRequest) {
+-  const pathname = request.nextUrl.pathname;
+-  const siteFromQuery = readSiteQueryParam(request.nextUrl.searchParams.get(SITE_QUERY_PARAM));
+-  const preferredSiteId = readPreferredSiteId(request);
+-
+-  if (pathname === "/ads.txt" || pathname.startsWith("/ads/")) {
+-    return nextWithHeaders(request, preferredSiteId);
+-  }
+-
+-  if (!isKnownPath(pathname)) {
+-    const home = new URL("/", request.url);
+-    home.search = request.nextUrl.search;
+-    return NextResponse.redirect(home);
+-  }
+-
+-  if (isDocsPath(pathname)) {
+-    return NextResponse.redirect(new URL("/docs", API_BASE_URL));
+-  }
+-
+-  if (pathname === "/" && siteFromQuery) {
+-    const destination = request.nextUrl.clone();
+-    destination.searchParams.delete(SITE_QUERY_PARAM);
+-    const response = NextResponse.redirect(destination);
+-    const secure = request.nextUrl.protocol === "https:";
+-    expireSitePreferenceCookies(response.cookies, request.nextUrl.hostname, secure);
+-    response.cookies.set(SITE_PREFERENCE_COOKIE, siteFromQuery, {
+-      ...SITE_PREFERENCE_COOKIE_OPTIONS,
+-      secure,
+-    });
+-    return response;
+-  }
+-
+-  if (pathname === "/" && request.nextUrl.searchParams.has(HOME_QUERY_PARAM)) {
+-    const response = nextWithHeaders(request, null);
+-    expireSitePreferenceCookies(response.cookies, request.nextUrl.hostname, request.nextUrl.protocol === "https:");
+-    return response;
++  ) {
++    return NextResponse.next();
+   }
+ 
+-  return nextWithHeaders(request, preferredSiteId);
++  return NextResponse.redirect(new URL("/", request.url));
+ }
+ 
+ export const config = {
+-  matcher: ["/((?!_next/static|_next/image|favicon.ico|icon|icons|img|ads|robots.txt).*)"],
++  matcher: ["/((?!_next/static|_next/image|favicon.ico|icon|icons|img|robots.txt).*)"],
+ };
+diff --git a/src/shared/components/adFitBanner.tsx b/src/shared/components/adFitBanner.tsx
+deleted file mode 100644
+index 3e484019689e99f0e2a1eac20855c01005bfdae1..0000000000000000000000000000000000000000
+--- a/src/shared/components/adFitBanner.tsx
++++ /dev/null
+@@ -1,202 +0,0 @@
+-"use client";
+-
+-import { usePathname } from "next/navigation";
+-import Script from "next/script";
+-import { type RefObject, useEffect, useRef, useState } from "react";
+-import {
+-  ADFIT_DESKTOP_MIN_WIDTH,
+-  ADFIT_SCRIPT_SRC,
+-  type AdFitPlacement,
+-  type AdFitSlot,
+-  adSlotFrameClass,
+-  adSlotVisibilityClass,
+-  readAdFitUnit,
+-  selectAdFitSlot,
+-} from "@/shared/lib/adFit";
+-
+-const NO_FILL_CALLBACK = "__bapAdFitNoFill";
+-const FILL_CALLBACK = "__bapAdFitFilled";
+-
+-interface AdFitApi {
+-  render: (element: HTMLElement) => void;
+-  destroy: (target: HTMLElement | string) => void;
+-}
+-
+-declare global {
+-  interface Window {
+-    adfit?: AdFitApi;
+-    [NO_FILL_CALLBACK]?: (element: HTMLElement) => void;
+-    [FILL_CALLBACK]?: (element: HTMLElement) => void;
+-  }
+-}
+-
+-function installAdFitCallbacks() {
+-  window[NO_FILL_CALLBACK] = (element) => {
+-    element.replaceChildren();
+-    element.style.display = "none";
+-    delete element.dataset.adfitFilled;
+-  };
+-  window[FILL_CALLBACK] = (element) => {
+-    element.dataset.adfitFilled = "1";
+-  };
+-}
+-
+-function AdSlotNotice() {
+-  return (
+-    <div className="absolute inset-0 flex items-center justify-center rounded-[12px] border border-white/50 bg-transparent px-2.5">
+-      <p className="text-center font-medium text-[11px] text-white/75 leading-[1.35] [word-break:keep-all] min-[800px]:text-[13px] min-[800px]:leading-snug">
+-        유지 비용 때문에 부득이하게 이곳에 광고가 게시될 예정이에요. 동아리 등 제휴 광고 문의는{" "}
+-        <a href="mailto:me@sspzoa.io" className="underline underline-offset-2">
+-          me@sspzoa.io
+-        </a>
+-        로 연락 주세요.
+-      </p>
+-    </div>
+-  );
+-}
+-
+-function AdFitIns({ slot }: { slot: AdFitSlot }) {
+-  const pathname = usePathname();
+-  const insRef = useRef<HTMLModElement>(null);
+-
+-  useEffect(() => {
+-    const ins = insRef.current;
+-    if (!ins) {
+-      return;
+-    }
+-
+-    installAdFitCallbacks();
+-    let cancelled = false;
+-    let timer = 0;
+-
+-    const render = () => {
+-      if (cancelled || !ins.isConnected || !window.adfit) {
+-        return;
+-      }
+-
+-      try {
+-        window.adfit.render(ins);
+-      } catch {
+-        // A second ins with the same unit can throw after the first is registered.
+-        // Keep this slot mounted so a later route change can render it again.
+-      }
+-    };
+-
+-    if (window.adfit) {
+-      render();
+-    } else {
+-      const started = Date.now();
+-      timer = window.setInterval(() => {
+-        if (window.adfit) {
+-          window.clearInterval(timer);
+-          render();
+-          return;
+-        }
+-
+-        if (Date.now() - started > 10000) {
+-          window.clearInterval(timer);
+-        }
+-      }, 50);
+-    }
+-
+-    return () => {
+-      cancelled = true;
+-      window.clearInterval(timer);
+-      window.adfit?.destroy(ins);
+-      ins.replaceChildren();
+-      ins.style.display = "none";
+-    };
+-  }, [pathname, slot.unit, slot.width, slot.height]);
+-
+-  return (
+-    <ins
+-      ref={insRef}
+-      className="kakao_ad_area"
+-      style={{ display: "none" }}
+-      data-ad-unit={slot.unit}
+-      data-ad-width={slot.width}
+-      data-ad-height={slot.height}
+-      data-ad-onfail={NO_FILL_CALLBACK}
+-      data-ad-onload={FILL_CALLBACK}
+-    />
+-  );
+-}
+-
+-function useAdFitSlot(mobileUnit: string | null, desktopUnit: string | null, placement: AdFitPlacement) {
+-  const [slot, setSlot] = useState<AdFitSlot | null>(null);
+-
+-  useEffect(() => {
+-    const media = window.matchMedia(`(min-width: ${ADFIT_DESKTOP_MIN_WIDTH}px)`);
+-    const apply = () => setSlot(selectAdFitSlot(media.matches, mobileUnit, desktopUnit, placement));
+-    apply();
+-    media.addEventListener("change", apply);
+-    return () => media.removeEventListener("change", apply);
+-  }, [mobileUnit, desktopUnit, placement]);
+-
+-  return slot;
+-}
+-
+-function useCreativeFilled(containerRef: RefObject<HTMLElement | null>, slot: AdFitSlot | null) {
+-  const [filled, setFilled] = useState(false);
+-
+-  useEffect(() => {
+-    const container = containerRef.current;
+-    if (!container || !slot) {
+-      setFilled(false);
+-      return;
+-    }
+-
+-    const check = () => {
+-      const creative = container.querySelector("iframe") ?? container.querySelector("[data-adfit-filled]");
+-      setFilled(creative !== null);
+-    };
+-    check();
+-    const observer = new MutationObserver(check);
+-    observer.observe(container, {
+-      childList: true,
+-      subtree: true,
+-      attributes: true,
+-      attributeFilter: ["data-adfit-filled"],
+-    });
+-    return () => observer.disconnect();
+-  }, [containerRef, slot]);
+-
+-  return filled;
+-}
+-
+-/**
+- * Kakao AdFit banner. An empty unit id still reserves the slot and shows the notice,
+- * but does not mount `<ins>` or load ba.min.js. A set id keeps the current render path.
+- * Route changes destroy and render mounted units again.
+- */
+-export function AdFitBanner({
+-  placement = "responsive",
+-  flush = false,
+-  className = "",
+-}: {
+-  placement?: AdFitPlacement;
+-  /** Skip the banner's own horizontal inset when the parent already pads. */
+-  flush?: boolean;
+-  className?: string;
+-}) {
+-  const pathname = usePathname();
+-  const frameRef = useRef<HTMLDivElement>(null);
+-  const mobileUnit = readAdFitUnit(process.env.NEXT_PUBLIC_ADFIT_UNIT_MOBILE);
+-  const desktopUnit = readAdFitUnit(process.env.NEXT_PUBLIC_ADFIT_UNIT_PC);
+-  const slot = useAdFitSlot(mobileUnit, desktopUnit, placement);
+-  const filled = useCreativeFilled(frameRef, slot);
+-  const frameClass = adSlotFrameClass(placement);
+-  const visibilityClass = adSlotVisibilityClass(placement);
+-
+-  const insetClass = flush ? "px-0" : "px-4";
+-
+-  return (
+-    <aside aria-label="광고" className={`${visibilityClass} w-full shrink-0 justify-center ${insetClass} ${className}`}>
+-      <div ref={frameRef} className={`relative shrink-0 overflow-hidden rounded-[12px] ${frameClass}`}>
+-        {slot && <AdFitIns key={`${pathname}:${placement}:${slot.unit}:${slot.width}x${slot.height}`} slot={slot} />}
+-        {!filled && <AdSlotNotice />}
+-      </div>
+-      {slot && <Script id="kakao-adfit" src={ADFIT_SCRIPT_SRC} strategy="afterInteractive" />}
+-    </aside>
+-  );
+-}
+diff --git a/src/shared/components/mealAdBanner.tsx b/src/shared/components/mealAdBanner.tsx
+deleted file mode 100644
+index 7cc6faa904cfc326c4133a5eb8d6e38dc853a3e4..0000000000000000000000000000000000000000
+--- a/src/shared/components/mealAdBanner.tsx
++++ /dev/null
+@@ -1,148 +0,0 @@
+-"use client";
+-
+-import { type RefObject, useEffect, useRef, useState } from "react";
+-import { AdFitBanner } from "@/shared/components/adFitBanner";
+-import {
+-  ADFIT_DESKTOP_SIZE,
+-  ADFIT_MOBILE_SIZE,
+-  type AdFitPlacement,
+-  adSlotFrameClass,
+-  adSlotVisibilityClass,
+-} from "@/shared/lib/adFit";
+-import { recordPartnerAdEvent } from "@/shared/lib/partnerAdTracking";
+-import { useOptionalSiteId } from "@/sites/context";
+-import {
+-  type PartnerAdCreative,
+-  type PartnerAdPlacement,
+-  partnerAdSlot,
+-  resolvePartnerAd,
+-  withPartnerUtm,
+-} from "@/sites/partnerAds";
+-
+-function useImpression(frameRef: RefObject<HTMLElement | null>, siteId: string, slot: string, ready: boolean) {
+-  useEffect(() => {
+-    const frame = frameRef.current;
+-    if (!ready || !frame || typeof IntersectionObserver === "undefined") {
+-      return;
+-    }
+-
+-    const observer = new IntersectionObserver(
+-      (entries) => {
+-        const visible = entries.some((entry) => entry.isIntersecting && entry.intersectionRatio >= 0.5);
+-        if (!visible) {
+-          return;
+-        }
+-
+-        observer.disconnect();
+-        recordPartnerAdEvent({ siteId, slot, type: "impression" });
+-      },
+-      { threshold: [0.5] },
+-    );
+-    observer.observe(frame);
+-    return () => observer.disconnect();
+-  }, [frameRef, ready, siteId, slot]);
+-}
+-
+-function PartnerBanner({
+-  creative,
+-  placement,
+-  slot,
+-  flush,
+-  className,
+-  onBroken,
+-}: {
+-  creative: PartnerAdCreative;
+-  placement: PartnerAdPlacement;
+-  slot: string;
+-  flush: boolean;
+-  className: string;
+-  onBroken: () => void;
+-}) {
+-  const frameRef = useRef<HTMLAnchorElement>(null);
+-  const imageRef = useRef<HTMLImageElement>(null);
+-  const [ready, setReady] = useState(false);
+-  const adPlacement: AdFitPlacement = placement === "desktop" ? "desktop" : "mobile";
+-  const size = placement === "desktop" ? ADFIT_DESKTOP_SIZE : ADFIT_MOBILE_SIZE;
+-  const src = placement === "desktop" ? creative.pcSrc : creative.mobileSrc;
+-  const href = withPartnerUtm(creative.href, creative.siteId, slot);
+-
+-  useEffect(() => {
+-    const image = imageRef.current;
+-    if (image?.complete && image.naturalWidth > 0) {
+-      setReady(true);
+-    }
+-  }, [src]);
+-
+-  useImpression(frameRef, creative.siteId, slot, ready);
+-
+-  return (
+-    <aside
+-      aria-label="광고"
+-      className={`${adSlotVisibilityClass(adPlacement)} w-full shrink-0 justify-center ${flush ? "px-0" : "px-4"} ${className}`}>
+-      <a
+-        ref={frameRef}
+-        href={href}
+-        target="_blank"
+-        rel="noopener"
+-        referrerPolicy="origin"
+-        data-partner-slot={slot}
+-        onClick={() => recordPartnerAdEvent({ siteId: creative.siteId, slot, type: "click" })}
+-        className={`relative block shrink-0 overflow-hidden rounded-[12px] ${adSlotFrameClass(adPlacement)}`}>
+-        <img
+-          ref={imageRef}
+-          src={src}
+-          alt={creative.alt}
+-          width={size.width}
+-          height={size.height}
+-          draggable={false}
+-          decoding="async"
+-          className="h-full w-full object-cover"
+-          onLoad={() => setReady(true)}
+-          onError={onBroken}
+-        />
+-        <span
+-          aria-hidden
+-          className="pointer-events-none absolute right-1 bottom-1 rounded bg-black/60 px-1 py-px font-semibold text-[9px] text-white leading-none">
+-          광고
+-        </span>
+-      </a>
+-    </aside>
+-  );
+-}
+-
+-/**
+- * Meal-screen ad. A filled partner creative replaces every AdFit slot for that school.
+- * Home does not use this component.
+- */
+-export function MealAdBanner({
+-  placement,
+-  mealId,
+-  flush = false,
+-  className = "",
+-}: {
+-  placement: PartnerAdPlacement;
+-  mealId?: string;
+-  flush?: boolean;
+-  className?: string;
+-}) {
+-  const siteId = useOptionalSiteId();
+-  const creative = resolvePartnerAd(siteId);
+-  const slot = partnerAdSlot(placement, mealId);
+-  const [broken, setBroken] = useState(false);
+-  const adPlacement: AdFitPlacement = placement === "desktop" ? "desktop" : "mobile";
+-
+-  if (!creative || !slot || broken) {
+-    return <AdFitBanner placement={adPlacement} flush={flush} className={className} />;
+-  }
+-
+-  return (
+-    <PartnerBanner
+-      creative={creative}
+-      placement={placement}
+-      slot={slot}
+-      flush={flush}
+-      className={className}
+-      onBroken={() => setBroken(true)}
+-    />
+-  );
+-}
+diff --git a/src/shared/components/mealLayout.tsx b/src/shared/components/mealLayout.tsx
+index 78e6013ad64891fb4be65c74ef3f36235e1e8f29..320849e2b7b9fefa532f0513dbdf96c51c215113 100644
+--- a/src/shared/components/mealLayout.tsx
++++ b/src/shared/components/mealLayout.tsx
+@@ -87,7 +87,6 @@ const MealLayout = memo(function MealLayout({ initialData, initialFormattedDate,
+             isError={isError}
+             errorMessage={errorMessage}
+             showContent={showContent}
+-            showMenuAd
+           />
+         );
+       })}
+diff --git a/src/shared/components/mealPageShell.tsx b/src/shared/components/mealPageShell.tsx
+index 9e9eefac8ddbfa8bc7598358d1b43162e2ff95ba..f134d47007f1febf7aa35f26044b1d46380e7e20 100644
+--- a/src/shared/components/mealPageShell.tsx
++++ b/src/shared/components/mealPageShell.tsx
+@@ -2,9 +2,8 @@ import type { ReactNode, RefObject, UIEventHandler } from "react";
+ import { memo } from "react";
+ import { MealNavigationBar } from "@/app/(pages)/(home)/(components)/mealNavigationBar";
+ import LoadingSpinner from "@/shared/components/common/loadingSpinner";
+-import { MealAdBanner } from "@/shared/components/mealAdBanner";
+ import { MealDesktopBackground } from "@/shared/components/mealDesktopBackground";
+-import { SiteEdgePanel } from "@/shared/components/siteEdgePanel";
++import { SiteFooter } from "@/shared/components/siteFooter";
+ 
+ interface MealPageShellProps {
+   background: ReactNode;
+@@ -32,12 +31,11 @@ export const MealPageShell = memo(function MealPageShell({
+   children,
+ }: MealPageShellProps) {
+   return (
+-    <div className="relative flex h-svh items-center justify-center overflow-hidden py-4 md:px-4 md:py-8">
++    <div className="relative flex h-svh flex-col items-center justify-center gap-3 overflow-hidden py-4 md:px-4 md:py-8">
+       {background}
+       <MealDesktopBackground />
+-      <SiteEdgePanel />
+ 
+-      <div className="relative z-10 flex h-full max-h-[900px] w-full max-w-[1500px] flex-col-reverse gap-4 md:flex-col md:px-4">
++      <div className="relative z-10 flex max-h-[900px] min-h-0 w-full max-w-[1500px] flex-1 flex-col-reverse gap-4 md:flex-col md:px-4">
+         <MealNavigationBar
+           onPrevDay={onPrevDay}
+           onNextDay={onNextDay}
+@@ -57,8 +55,8 @@ export const MealPageShell = memo(function MealPageShell({
+           className="flex w-full flex-1 snap-x snap-mandatory flex-row gap-4 overflow-x-auto px-4 md:snap-none md:px-0">
+           {children}
+         </div>
+-        <MealAdBanner placement="desktop" flush />
+       </div>
++      <SiteFooter />
+     </div>
+   );
+ });
+diff --git a/src/shared/components/mealSection.tsx b/src/shared/components/mealSection.tsx
+index 4e60e7ffdc6713d6e3bcfa9336d731c0b985f700..6127056b648a74786c16c491e188ee67c348e7e9 100644
+--- a/src/shared/components/mealSection.tsx
++++ b/src/shared/components/mealSection.tsx
+@@ -4,7 +4,6 @@ import Image from "next/image";
+ import { memo, useEffect, useMemo, useState } from "react";
+ import Glass from "@/shared/components/common/glass";
+ import { ImagePopup } from "@/shared/components/imagePopup";
+-import { MealAdBanner } from "@/shared/components/mealAdBanner";
+ import { MealSectionStatusMessage } from "@/shared/components/mealSectionStatusMessage";
+ import { useFoodImageSearch } from "@/shared/hooks/useFoodImageSearch";
+ import { resolveMealSectionMessage } from "@/shared/lib/mealErrors";
+@@ -20,7 +19,6 @@ interface MealSectionProps {
+   isError?: boolean;
+   errorMessage?: string;
+   showContent: boolean;
+-  showMenuAd?: boolean;
+ }
+ 
+ const MenuItems = memo(function MenuItems({
+@@ -86,7 +84,6 @@ export const MealSection = memo(function MealSection({
+   isError = false,
+   errorMessage,
+   showContent,
+-  showMenuAd = false,
+ }: MealSectionProps) {
+   const [popupData, setPopupData] = useState<MealSearchResponse | null>(null);
+   const [isPopupOpen, setIsPopupOpen] = useState(false);
+@@ -162,8 +159,6 @@ export const MealSection = memo(function MealSection({
+               {headerMeta && <p className="ml-auto text-[16px] tracking-tight opacity-50">{headerMeta}</p>}
+             </div>
+ 
+-            {showMenuAd && <MealAdBanner placement="mobile" mealId={meal.id} flush />}
+-
+             {!isLoading && !isError && meal.image && (
+               <div className="flex flex-row gap-2">
+                 <p className="font-semibold text-[20px]">-</p>
+diff --git a/src/shared/components/siteEdgePanel.tsx b/src/shared/components/siteEdgePanel.tsx
+deleted file mode 100644
+index 5c703a7ec14e97b95b291affd33a4355580d9e52..0000000000000000000000000000000000000000
+--- a/src/shared/components/siteEdgePanel.tsx
++++ /dev/null
+@@ -1,96 +0,0 @@
+-"use client";
+-
+-import { LayoutGrid } from "lucide-react";
+-import { memo, useCallback, useRef, useState } from "react";
+-import Glass from "@/shared/components/common/glass";
+-import { HOME_HREF, sitePreferenceHref } from "@/shared/lib/sitePreference";
+-import { useCatalog, useSiteId } from "@/sites/context";
+-
+-const SWIPE_THRESHOLD = 40;
+-
+-export const SiteEdgePanel = memo(function SiteEdgePanel() {
+-  const siteId = useSiteId();
+-  const catalog = useCatalog();
+-  const [isOpen, setIsOpen] = useState(false);
+-  const touchStartX = useRef<number | null>(null);
+-
+-  const close = useCallback(() => setIsOpen(false), []);
+-  const toggle = useCallback(() => setIsOpen((open) => !open), []);
+-
+-  const handleTouchStart = (event: React.TouchEvent) => {
+-    touchStartX.current = event.touches[0].clientX;
+-  };
+-
+-  const handleTouchEnd = (event: React.TouchEvent) => {
+-    if (touchStartX.current === null) {
+-      return;
+-    }
+-
+-    const deltaX = event.changedTouches[0].clientX - touchStartX.current;
+-    touchStartX.current = null;
+-
+-    if (deltaX <= -SWIPE_THRESHOLD) {
+-      setIsOpen(true);
+-      return;
+-    }
+-
+-    if (deltaX >= SWIPE_THRESHOLD) {
+-      setIsOpen(false);
+-    }
+-  };
+-
+-  return (
+-    <div className="pointer-events-none absolute inset-0 z-30 overflow-hidden md:hidden">
+-      {isOpen && (
+-        <button
+-          type="button"
+-          className="pointer-events-auto absolute inset-0 bg-black/20"
+-          onClick={close}
+-          aria-label="닫기"
+-        />
+-      )}
+-
+-      <div
+-        className={`-translate-y-1/2 pointer-events-auto absolute top-1/2 right-0 flex items-stretch transition-transform duration-200 ${
+-          isOpen ? "translate-x-0" : "translate-x-[calc(100%-22px)]"
+-        }`}
+-        onTouchStart={handleTouchStart}
+-        onTouchEnd={handleTouchEnd}>
+-        <button
+-          type="button"
+-          onClick={toggle}
+-          aria-label="학교 선택"
+-          aria-expanded={isOpen}
+-          className="flex h-[96px] w-[22px] items-center justify-center self-center rounded-l-[14px] border-2 border-white/10 border-r-0 bg-white/20 shadow-[0_0_10px_rgba(0,0,0,0.05)] backdrop-blur-[24px]">
+-          <LayoutGrid size={14} strokeWidth={2.5} />
+-        </button>
+-
+-        <Glass className="!rounded-r-none flex w-[220px] flex-col gap-2 border-r-0 p-3">
+-          <a
+-            href={HOME_HREF}
+-            className="rounded-[12px] px-3 py-3 text-left duration-100 active:scale-[0.98] active:opacity-70">
+-            <p className="font-bold text-[16px] tracking-tight">홈</p>
+-          </a>
+-          {catalog.map((site) => (
+-            <a
+-              key={site.id}
+-              href={sitePreferenceHref(site.id)}
+-              onClick={
+-                site.id === siteId
+-                  ? (event) => {
+-                      event.preventDefault();
+-                      close();
+-                    }
+-                  : undefined
+-              }
+-              className={`rounded-[12px] px-3 py-3 text-left duration-100 active:scale-[0.98] active:opacity-70 ${
+-                site.id === siteId ? "bg-white/30" : ""
+-              }`}>
+-              <p className="font-bold text-[16px] tracking-tight">{site.name}</p>
+-            </a>
+-          ))}
+-        </Glass>
+-      </div>
+-    </div>
+-  );
+-});
+diff --git a/src/shared/components/siteFooter.tsx b/src/shared/components/siteFooter.tsx
+new file mode 100644
+index 0000000000000000000000000000000000000000..f93153595d82d338e12b081b17b043d4956e4f01
+--- /dev/null
++++ b/src/shared/components/siteFooter.tsx
+@@ -0,0 +1,33 @@
++import { API_BASE_URL } from "@/shared/lib/apiBase";
++import { BRAND } from "@/sites/config";
++
++export function SiteFooter() {
++  return (
++    <footer className="relative z-10 shrink-0 px-4 text-center text-xs leading-relaxed">
++      <p>
++        originally created by{" "}
++        <a href="https://github.com/sspzoa" className="underline">
++          sspzoa
++        </a>
++        , modified by Song Hyun Ho, under license{" "}
++        <a href={`${BRAND.github.web}/blob/main/LICENSE`} className="underline">
++          AGPL-3.0
++        </a>
++      </p>
++      <p>
++        Original maintainers:{" "}
++        <a href="https://github.com/sspzoa" className="underline">
++          sspzoa
++        </a>
++        ,{" "}
++        <a href="https://github.com/vvcnyy" className="underline">
++          vvcnyy
++        </a>
++        {" · "}
++        <a href={`${API_BASE_URL}/docs`} className="underline">
++          API 문서
++        </a>
++      </p>
++    </footer>
++  );
++}
+diff --git a/src/shared/components/siteSelectButton.tsx b/src/shared/components/siteSelectButton.tsx
+deleted file mode 100644
+index 55c47596194fa4247365677c3dc9e0272834068f..0000000000000000000000000000000000000000
+--- a/src/shared/components/siteSelectButton.tsx
++++ /dev/null
+@@ -1,16 +0,0 @@
+-"use client";
+-
+-import { LayoutGrid } from "lucide-react";
+-import { memo } from "react";
+-import Glass from "@/shared/components/common/glass";
+-import { HOME_HREF } from "@/shared/lib/sitePreference";
+-
+-export const SiteSelectButton = memo(function SiteSelectButton({ className = "" }: { className?: string }) {
+-  return (
+-    <a href={HOME_HREF} className={`shrink-0 ${className}`.trim()} aria-label="홈">
+-      <Glass className="flex h-[54px] w-[54px] cursor-pointer items-center justify-center duration-100 active:scale-95 active:opacity-50">
+-        <LayoutGrid size={28} strokeWidth={2.5} />
+-      </Glass>
+-    </a>
+-  );
+-});
+diff --git a/src/shared/components/siteSelectLink.tsx b/src/shared/components/siteSelectLink.tsx
+deleted file mode 100644
+index c4b2c857d109ebf4c5d9f59ab34e1f360938bac9..0000000000000000000000000000000000000000
+--- a/src/shared/components/siteSelectLink.tsx
++++ /dev/null
+@@ -1,18 +0,0 @@
+-import type { ReactNode } from "react";
+-import { sitePreferenceHref } from "@/shared/lib/sitePreference";
+-
+-export function SiteSelectLink({
+-  siteId,
+-  className,
+-  children,
+-}: {
+-  siteId: string;
+-  className?: string;
+-  children: ReactNode;
+-}) {
+-  return (
+-    <a href={sitePreferenceHref(siteId)} className={className}>
+-      {children}
+-    </a>
+-  );
+-}
+diff --git a/src/shared/components/siteSelectView.tsx b/src/shared/components/siteSelectView.tsx
+deleted file mode 100644
+index 67894ca0d49c2167e5944727fb50c6d374bf73f1..0000000000000000000000000000000000000000
+--- a/src/shared/components/siteSelectView.tsx
++++ /dev/null
+@@ -1,110 +0,0 @@
+-"use client";
+-
+-import { useEffect } from "react";
+-import { AdFitBanner } from "@/shared/components/adFitBanner";
+-import Glass from "@/shared/components/common/glass";
+-import { MealDesktopBackground } from "@/shared/components/mealDesktopBackground";
+-import { SiteSelectLink } from "@/shared/components/siteSelectLink";
+-import { API_BASE_URL } from "@/shared/lib/apiBase";
+-import { clearSitePreferenceCookie } from "@/shared/lib/sitePreference";
+-import { BRAND } from "@/sites/config";
+-import { useCatalog, useOptionalSiteId } from "@/sites/context";
+-
+-const footerLinks = [
+-  { href: `${API_BASE_URL}/docs`, label: "API 문서" },
+-  { href: `${API_BASE_URL}/changelog`, label: "체인지로그" },
+-  { href: BRAND.github.web, label: "프론트 기여하기" },
+-  { href: BRAND.github.api, label: "백엔드 기여하기" },
+-] as const;
+-
+-const linkClassName = "underline underline-offset-2 duration-100 active:opacity-70";
+-
+-export function SiteSelectView() {
+-  const catalog = useCatalog();
+-  const currentSiteId = useOptionalSiteId();
+-
+-  useEffect(() => {
+-    clearSitePreferenceCookie();
+-    if (new URLSearchParams(window.location.search).has("home")) {
+-      window.history.replaceState(null, "", "/");
+-    }
+-  }, []);
+-
+-  return (
+-    <div className="relative flex min-h-svh flex-col overflow-x-hidden p-4">
+-      <MealDesktopBackground className="fixed inset-0 h-full w-full" />
+-
+-      <div className="z-10 flex flex-1 flex-col items-center justify-center">
+-        <div className="flex w-full max-w-[600px] flex-col items-center gap-8 md:max-w-[960px]">
+-          <div className="flex flex-col items-center gap-2">
+-            <div className="flex items-baseline gap-2">
+-              <h1 className="font-bold text-[40px] tracking-tight">{BRAND.title}</h1>
+-              <span className="font-medium text-[14px] tabular-nums opacity-40">v{BRAND.version}</span>
+-            </div>
+-            <p className="text-[16px] opacity-60">오늘 메뉴를 한곳에서 확인하세요</p>
+-          </div>
+-
+-          <div className="grid w-full grid-cols-1 gap-3 md:grid-cols-3">
+-            {catalog.map((site) => {
+-              const showSchoolName = site.schoolName !== site.name;
+-              const isCurrent = site.id === currentSiteId;
+-
+-              return (
+-                <SiteSelectLink key={site.id} siteId={site.id} className="block h-full">
+-                  <Glass
+-                    className={`flex h-full w-full cursor-pointer items-center gap-3 px-5 py-4 transition-transform duration-100 active:scale-[0.98] active:opacity-80 md:flex-col md:justify-center md:gap-1 md:p-5 ${
+-                      showSchoolName ? "justify-between" : "justify-center"
+-                    } ${isCurrent ? "bg-white/30" : ""}`}>
+-                    <p className="shrink-0 font-bold text-[18px] tracking-tight md:text-[20px]">{site.name}</p>
+-                    {showSchoolName && (
+-                      <p className="min-w-0 text-right text-[13px] leading-snug opacity-55 md:text-center md:text-[14px]">
+-                        {site.schoolName}
+-                      </p>
+-                    )}
+-                  </Glass>
+-                </SiteSelectLink>
+-              );
+-            })}
+-          </div>
+-
+-          <AdFitBanner flush />
+-
+-          <footer className="flex flex-col items-center gap-1 text-[13px] opacity-45">
+-            <nav aria-label="사이트 링크" className="flex flex-wrap items-center justify-center gap-x-2 gap-y-0.5">
+-              {footerLinks.map((link, index) => (
+-                <span key={link.href} className="flex items-center gap-2">
+-                  {index > 0 && (
+-                    <span aria-hidden className="select-none">
+-                      ·
+-                    </span>
+-                  )}
+-                  <a href={link.href} target="_blank" rel="noopener noreferrer" className={linkClassName}>
+-                    {link.label}
+-                  </a>
+-                </span>
+-              ))}
+-            </nav>
+-            <p className="text-center">
+-              maintained by{" "}
+-              <a
+-                href="https://github.com/sspzoa"
+-                target="_blank"
+-                rel="noopener noreferrer"
+-                className="underline underline-offset-2 duration-100 active:opacity-70">
+-                sspzoa
+-              </a>
+-              ,{" "}
+-              <a
+-                href="https://github.com/vvcnyy"
+-                target="_blank"
+-                rel="noopener noreferrer"
+-                className="underline underline-offset-2 duration-100 active:opacity-70">
+-                vvcnyy
+-              </a>
+-            </p>
+-          </footer>
+-        </div>
+-      </div>
+-    </div>
+-  );
+-}
+diff --git a/src/shared/lib/adFit.test.ts b/src/shared/lib/adFit.test.ts
+deleted file mode 100644
+index 1c542709ec4118b3dd3f16fe518372650ed5598e..0000000000000000000000000000000000000000
+--- a/src/shared/lib/adFit.test.ts
++++ /dev/null
+@@ -1,61 +0,0 @@
+-import { describe, expect, test } from "bun:test";
+-import { adSlotFrameClass, adSlotVisibilityClass, readAdFitUnit, selectAdFitSlot } from "@/shared/lib/adFit";
+-
+-describe("ad slot box", () => {
+-  test("keeps the AdFit sizes and the 800px switch", () => {
+-    expect(adSlotFrameClass("mobile")).toBe("h-[100px] w-[320px]");
+-    expect(adSlotFrameClass("desktop")).toBe("h-[90px] w-[728px]");
+-    expect(adSlotVisibilityClass("mobile")).toBe("flex min-[800px]:hidden");
+-    expect(adSlotVisibilityClass("desktop")).toBe("hidden min-[800px]:flex");
+-  });
+-});
+-
+-describe("readAdFitUnit", () => {
+-  test("drops blank values and trims a real unit id", () => {
+-    expect(readAdFitUnit(undefined)).toBeNull();
+-    expect(readAdFitUnit("")).toBeNull();
+-    expect(readAdFitUnit("   ")).toBeNull();
+-    expect(readAdFitUnit(" DAN-mobile ")).toBe("DAN-mobile");
+-  });
+-});
+-
+-describe("selectAdFitSlot", () => {
+-  test("returns nothing when the matching unit is empty", () => {
+-    expect(selectAdFitSlot(false, null, "DAN-pc")).toBeNull();
+-    expect(selectAdFitSlot(true, "DAN-mobile", null)).toBeNull();
+-    expect(selectAdFitSlot(false, null, null)).toBeNull();
+-  });
+-
+-  test("uses 320x100 on mobile and 728x90 on desktop", () => {
+-    expect(selectAdFitSlot(false, "DAN-mobile", "DAN-pc")).toEqual({
+-      unit: "DAN-mobile",
+-      width: 320,
+-      height: 100,
+-    });
+-    expect(selectAdFitSlot(true, "DAN-mobile", "DAN-pc")).toEqual({
+-      unit: "DAN-pc",
+-      width: 728,
+-      height: 90,
+-    });
+-  });
+-
+-  test("mobile placement never uses the desktop unit", () => {
+-    expect(selectAdFitSlot(false, "DAN-mobile", "DAN-pc", "mobile")).toEqual({
+-      unit: "DAN-mobile",
+-      width: 320,
+-      height: 100,
+-    });
+-    expect(selectAdFitSlot(true, "DAN-mobile", "DAN-pc", "mobile")).toBeNull();
+-    expect(selectAdFitSlot(false, null, "DAN-pc", "mobile")).toBeNull();
+-  });
+-
+-  test("desktop placement is only the 728x90 unit", () => {
+-    expect(selectAdFitSlot(true, "DAN-mobile", "DAN-pc", "desktop")).toEqual({
+-      unit: "DAN-pc",
+-      width: 728,
+-      height: 90,
+-    });
+-    expect(selectAdFitSlot(false, "DAN-mobile", "DAN-pc", "desktop")).toBeNull();
+-    expect(selectAdFitSlot(true, "DAN-mobile", null, "desktop")).toBeNull();
+-  });
+-});
+diff --git a/src/shared/lib/adFit.ts b/src/shared/lib/adFit.ts
+deleted file mode 100644
+index 06cb99b84bf5ece8c776a8b3418c394956439b7e..0000000000000000000000000000000000000000
+--- a/src/shared/lib/adFit.ts
++++ /dev/null
+@@ -1,78 +0,0 @@
+-export const ADFIT_SCRIPT_SRC = "https://t1.daumcdn.net/kas/static/ba.min.js";
+-
+-/** Mobile banner. Official AdFit size. */
+-export const ADFIT_MOBILE_SIZE = { width: 320, height: 100 } as const;
+-
+-/** Leaderboard. Official AdFit size. */
+-export const ADFIT_DESKTOP_SIZE = { width: 728, height: 90 } as const;
+-
+-/** 728px leaderboard fits on the home screen once the viewport clears page padding. */
+-export const ADFIT_DESKTOP_MIN_WIDTH = 800;
+-
+-export type AdFitPlacement = "responsive" | "mobile" | "desktop";
+-
+-export interface AdFitSlot {
+-  unit: string;
+-  width: number;
+-  height: number;
+-}
+-
+-export function readAdFitUnit(value: string | undefined): string | null {
+-  const unit = value?.trim();
+-  return unit ? unit : null;
+-}
+-
+-/** Fixed frame so a partner banner occupies the same box as AdFit. */
+-export function adSlotFrameClass(placement: AdFitPlacement): string {
+-  if (placement === "mobile") {
+-    return "h-[100px] w-[320px]";
+-  }
+-
+-  if (placement === "desktop") {
+-    return "h-[90px] w-[728px]";
+-  }
+-
+-  return "h-[100px] w-[320px] min-[800px]:h-[90px] min-[800px]:w-[728px]";
+-}
+-
+-/** Mobile slots hide at 800px. The desktop slot is hidden below that. */
+-export function adSlotVisibilityClass(placement: AdFitPlacement): string {
+-  if (placement === "mobile") {
+-    return "flex min-[800px]:hidden";
+-  }
+-
+-  if (placement === "desktop") {
+-    return "hidden min-[800px]:flex";
+-  }
+-
+-  return "flex";
+-}
+-
+-export function selectAdFitSlot(
+-  isDesktop: boolean,
+-  mobileUnit: string | null,
+-  desktopUnit: string | null,
+-  placement: AdFitPlacement = "responsive",
+-): AdFitSlot | null {
+-  if (placement === "mobile") {
+-    if (isDesktop) {
+-      return null;
+-    }
+-
+-    return mobileUnit ? { unit: mobileUnit, ...ADFIT_MOBILE_SIZE } : null;
+-  }
+-
+-  if (placement === "desktop") {
+-    if (!isDesktop) {
+-      return null;
+-    }
+-
+-    return desktopUnit ? { unit: desktopUnit, ...ADFIT_DESKTOP_SIZE } : null;
+-  }
+-
+-  if (isDesktop) {
+-    return desktopUnit ? { unit: desktopUnit, ...ADFIT_DESKTOP_SIZE } : null;
+-  }
+-
+-  return mobileUnit ? { unit: mobileUnit, ...ADFIT_MOBILE_SIZE } : null;
+-}
+diff --git a/src/shared/lib/catalog.test.ts b/src/shared/lib/catalog.test.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..29c2930001fdd3ec7a0be32c00e38000fcc70508
+--- /dev/null
++++ b/src/shared/lib/catalog.test.ts
+@@ -0,0 +1,41 @@
++import { afterEach, describe, expect, spyOn, test } from "bun:test";
++import { getCatalog } from "@/shared/lib/catalog";
++
++afterEach(() => fetchSpy.mockRestore());
++let fetchSpy: ReturnType<typeof spyOn<typeof globalThis, "fetch">>;
++
++describe("Dimigo catalog", () => {
++  test("only exposes Dimigo even when the API still returns other schools", async () => {
++    fetchSpy = spyOn(globalThis, "fetch");
++    const dimigo = { id: "kdmhs", basePath: "/kdmhs", meals: [] };
++    fetchSpy.mockResolvedValue(
++      Response.json({
++        providers: [
++          { id: "horang", basePath: "/horang", meals: [] },
++          dimigo,
++          { id: "dgu", basePath: "/dgu", meals: [] },
++          null,
++        ],
++      }),
++    );
++    expect(await getCatalog()).toEqual([dimigo]);
++  });
++
++  test("does not fall back to another school when Dimigo is unavailable", async () => {
++    fetchSpy = spyOn(globalThis, "fetch");
++    fetchSpy.mockResolvedValue(Response.json({ providers: [{ id: "dgu", basePath: "/dgu", meals: [] }] }));
++    expect(await getCatalog()).toEqual([]);
++  });
++
++  test("handles invalid catalogs and API failures", async () => {
++    fetchSpy = spyOn(globalThis, "fetch");
++    for (const body of [{}, { providers: null }, { providers: [{ id: "kdmhs" }] }]) {
++      fetchSpy.mockResolvedValue(Response.json(body));
++      expect(await getCatalog()).toEqual([]);
++    }
++    fetchSpy.mockResolvedValue(new Response(null, { status: 503 }));
++    expect(await getCatalog()).toEqual([]);
++    fetchSpy.mockRejectedValue(new Error("offline"));
++    expect(await getCatalog()).toEqual([]);
++  });
++});
+diff --git a/src/shared/lib/catalog.ts b/src/shared/lib/catalog.ts
+index 0aa106f538288dddc6c826913bb31c4ee0ec43d2..451aee3d5af0d9be4fa2ca41c8bd65b33a706cbd 100644
+--- a/src/shared/lib/catalog.ts
++++ b/src/shared/lib/catalog.ts
+@@ -16,16 +16,8 @@ export const getCatalog = cache(async (): Promise<SitePresentation[]> => {
+       return [];
+     }
+ 
+-    return body.providers.filter((site) => site?.id && site.basePath && Array.isArray(site.meals));
++    return body.providers.filter((site) => site?.id === "kdmhs" && site.basePath && Array.isArray(site.meals));
+   } catch {
+     return [];
+   }
+ });
+-
+-export function findSite(catalog: SitePresentation[], siteId: string | null | undefined): SitePresentation | null {
+-  if (!siteId) {
+-    return null;
+-  }
+-
+-  return catalog.find((site) => site.id === siteId) ?? null;
+-}
+diff --git a/src/shared/lib/partnerAdTracking.test.ts b/src/shared/lib/partnerAdTracking.test.ts
+deleted file mode 100644
+index 4562a2c9921de5e2560fb7b0cf4c33572682c2f3..0000000000000000000000000000000000000000
+--- a/src/shared/lib/partnerAdTracking.test.ts
++++ /dev/null
+@@ -1,30 +0,0 @@
+-import { describe, expect, test } from "bun:test";
+-import {
+-  allowPartnerAdEvent,
+-  partnerAdEventBody,
+-  partnerAdEventUrl,
+-  resetPartnerAdEventGate,
+-} from "@/shared/lib/partnerAdTracking";
+-
+-describe("partner ad events", () => {
+-  test("posts only the institution, slot, and event type", () => {
+-    expect(partnerAdEventUrl()).toMatch(/\/partner-ads\/events$/);
+-    expect(JSON.parse(partnerAdEventBody({ siteId: "kdmhs", slot: "mobile-breakfast", type: "impression" }))).toEqual({
+-      siteId: "kdmhs",
+-      slot: "mobile-breakfast",
+-      type: "impression",
+-    });
+-  });
+-
+-  test("counts an impression once and ignores a click repeat inside one second", () => {
+-    resetPartnerAdEventGate();
+-    const impression = { siteId: "kdmhs", slot: "pc", type: "impression" as const };
+-    const click = { siteId: "kdmhs", slot: "mobile-lunch", type: "click" as const };
+-
+-    expect(allowPartnerAdEvent(impression, 1_000)).toBe(true);
+-    expect(allowPartnerAdEvent(impression, 5_000)).toBe(false);
+-    expect(allowPartnerAdEvent(click, 1_000)).toBe(true);
+-    expect(allowPartnerAdEvent(click, 1_500)).toBe(false);
+-    expect(allowPartnerAdEvent(click, 2_000)).toBe(true);
+-  });
+-});
+diff --git a/src/shared/lib/partnerAdTracking.ts b/src/shared/lib/partnerAdTracking.ts
+deleted file mode 100644
+index 3850d7dd0be5cf27d36f28595d7c24ce11bf2b0c..0000000000000000000000000000000000000000
+--- a/src/shared/lib/partnerAdTracking.ts
++++ /dev/null
+@@ -1,82 +0,0 @@
+-import { API_BASE_URL } from "@/shared/lib/apiBase";
+-
+-export type PartnerAdEventType = "impression" | "click";
+-
+-export interface PartnerAdEvent {
+-  siteId: string;
+-  slot: string;
+-  type: PartnerAdEventType;
+-}
+-
+-const CLICK_GAP_MS = 1000;
+-const seen = new Map<string, number>();
+-
+-export function partnerAdEventUrl(): string {
+-  return `${API_BASE_URL}/partner-ads/events`;
+-}
+-
+-export function partnerAdEventBody(event: PartnerAdEvent): string {
+-  return JSON.stringify({
+-    siteId: event.siteId,
+-    slot: event.slot,
+-    type: event.type,
+-  });
+-}
+-
+-/** One impression per page load. Clicks closer than a second on the same slot are dropped. */
+-export function allowPartnerAdEvent(event: PartnerAdEvent, now = Date.now()): boolean {
+-  const key = `${event.type}:${event.siteId}:${event.slot}`;
+-  const previous = seen.get(key);
+-  if (event.type === "impression") {
+-    if (previous !== undefined) {
+-      return false;
+-    }
+-    seen.set(key, now);
+-    return true;
+-  }
+-
+-  if (previous !== undefined && now - previous < CLICK_GAP_MS) {
+-    return false;
+-  }
+-
+-  seen.set(key, now);
+-  return true;
+-}
+-
+-export function resetPartnerAdEventGate(): void {
+-  seen.clear();
+-}
+-
+-/** Fire-and-forget. The meal page stays open, so the beacon is not racing an unload. */
+-export function recordPartnerAdEvent(event: PartnerAdEvent): void {
+-  if (!allowPartnerAdEvent(event)) {
+-    return;
+-  }
+-
+-  const url = partnerAdEventUrl();
+-  const body = partnerAdEventBody(event);
+-
+-  try {
+-    if (typeof navigator !== "undefined" && typeof navigator.sendBeacon === "function") {
+-      const sent = navigator.sendBeacon(url, new Blob([body], { type: "text/plain;charset=UTF-8" }));
+-      if (sent) {
+-        return;
+-      }
+-    }
+-  } catch {
+-    // Fall through to fetch.
+-  }
+-
+-  if (typeof fetch !== "function") {
+-    return;
+-  }
+-
+-  void fetch(url, {
+-    method: "POST",
+-    body,
+-    headers: { "Content-Type": "text/plain;charset=UTF-8" },
+-    keepalive: true,
+-    mode: "cors",
+-    credentials: "omit",
+-  }).catch(() => {});
+-}
+diff --git a/src/shared/lib/sitePreference.test.ts b/src/shared/lib/sitePreference.test.ts
+deleted file mode 100644
+index 6c67a1ea17a1d53cfaa6fb4da5ad037ca617840e..0000000000000000000000000000000000000000
+--- a/src/shared/lib/sitePreference.test.ts
++++ /dev/null
+@@ -1,38 +0,0 @@
+-import { describe, expect, test } from "bun:test";
+-import {
+-  expireSitePreferenceCookies,
+-  legacySitePreferenceCookieDomains,
+-  SITE_PREFERENCE_COOKIE,
+-} from "@/shared/lib/sitePreference";
+-
+-describe("legacySitePreferenceCookieDomains", () => {
+-  test("includes the shared domain on 밥.net hosts", () => {
+-    expect(legacySitePreferenceCookieDomains("xn--rh3b.net")).toEqual([".xn--rh3b.net"]);
+-    expect(legacySitePreferenceCookieDomains("밥.net")).toEqual([".xn--rh3b.net"]);
+-  });
+-
+-  test("skips localhost", () => {
+-    expect(legacySitePreferenceCookieDomains("localhost")).toEqual([]);
+-  });
+-});
+-
+-describe("expireSitePreferenceCookies", () => {
+-  test("expires host-only and legacy domain cookies", () => {
+-    const writes: Array<{ name: string; value: string; options: Record<string, unknown> }> = [];
+-
+-    expireSitePreferenceCookies(
+-      {
+-        set(name, value, options) {
+-          writes.push({ name, value, options });
+-        },
+-      },
+-      "xn--rh3b.net",
+-      true,
+-    );
+-
+-    expect(writes).toHaveLength(2);
+-    expect(writes.every((write) => write.name === SITE_PREFERENCE_COOKIE && write.value === "")).toBe(true);
+-    expect(writes.every((write) => write.options.httpOnly === false)).toBe(true);
+-    expect(writes.some((write) => write.options.domain === ".xn--rh3b.net")).toBe(true);
+-  });
+-});
+diff --git a/src/shared/lib/sitePreference.ts b/src/shared/lib/sitePreference.ts
+deleted file mode 100644
+index 04fa3e4de63ac5aa59946b06281070836e6befca..0000000000000000000000000000000000000000
+--- a/src/shared/lib/sitePreference.ts
++++ /dev/null
+@@ -1,74 +0,0 @@
+-export const SITE_PREFERENCE_COOKIE = "bap-site-id";
+-export const SITE_QUERY_PARAM = "site";
+-export const HOME_QUERY_PARAM = "home";
+-export const HOME_HREF = `/?${HOME_QUERY_PARAM}=1`;
+-export const SITE_PREFERENCE_MAX_AGE = 60 * 60 * 24 * 365;
+-
+-/** 2026-08-25 select-first routing used a shared registrable domain. */
+-export const LEGACY_SITE_PREFERENCE_COOKIE_DOMAINS = [".xn--rh3b.net"] as const;
+-
+-export const SITE_PREFERENCE_COOKIE_OPTIONS = {
+-  path: "/",
+-  maxAge: SITE_PREFERENCE_MAX_AGE,
+-  sameSite: "lax" as const,
+-  httpOnly: false,
+-};
+-
+-export function legacySitePreferenceCookieDomains(hostname: string): readonly string[] {
+-  if (
+-    hostname === "xn--rh3b.net" ||
+-    hostname.endsWith(".xn--rh3b.net") ||
+-    hostname.endsWith(".밥.net") ||
+-    hostname === "밥.net"
+-  ) {
+-    return LEGACY_SITE_PREFERENCE_COOKIE_DOMAINS;
+-  }
+-  return [];
+-}
+-
+-export function readSitePreference(value: string | undefined): string | null {
+-  const trimmed = value?.trim();
+-  return trimmed ? trimmed : null;
+-}
+-
+-export function isDocsPath(pathname: string): boolean {
+-  return pathname === "/docs" || pathname.startsWith("/docs/");
+-}
+-
+-export function clearSitePreferenceCookie(): void {
+-  const secure = window.location.protocol === "https:" ? "; Secure" : "";
+-  document.cookie = `${SITE_PREFERENCE_COOKIE}=; Path=/; Max-Age=0; SameSite=Lax${secure}`;
+-
+-  for (const domain of legacySitePreferenceCookieDomains(window.location.hostname)) {
+-    document.cookie = `${SITE_PREFERENCE_COOKIE}=; Path=/; Max-Age=0; SameSite=Lax; Domain=${domain}${secure}`;
+-  }
+-}
+-
+-type CookieStore = {
+-  set(name: string, value: string, options: Record<string, unknown>): void;
+-};
+-
+-export function expireSitePreferenceCookies(store: CookieStore, hostname: string, secure: boolean): void {
+-  const base = {
+-    path: "/",
+-    maxAge: 0,
+-    expires: new Date(0),
+-    sameSite: "lax" as const,
+-    secure,
+-    httpOnly: false,
+-  };
+-
+-  store.set(SITE_PREFERENCE_COOKIE, "", base);
+-
+-  for (const domain of legacySitePreferenceCookieDomains(hostname)) {
+-    store.set(SITE_PREFERENCE_COOKIE, "", { ...base, domain });
+-  }
+-}
+-
+-export function sitePreferenceHref(siteId: string): string {
+-  return `/?${SITE_QUERY_PARAM}=${encodeURIComponent(siteId)}`;
+-}
+-
+-export function readSiteQueryParam(value: string | null | undefined): string | null {
+-  return readSitePreference(value ?? undefined);
+-}
+diff --git a/src/shared/types/index.ts b/src/shared/types/index.ts
+index 1a6761a41f64d5cfecab9435b0d85acb44663139..6bf0c09632766eabb74321e735d67e6e91d204c9 100644
+--- a/src/shared/types/index.ts
++++ b/src/shared/types/index.ts
+@@ -30,7 +30,6 @@ export interface SitePresentation {
+   description: string;
+   keywords: string[];
+   googleSiteVerification?: string;
+-  adsenseClient?: string;
+   features: { foodSearch: boolean };
+   meals: MealSlotMeta[];
+ }
+diff --git a/src/sites/config.ts b/src/sites/config.ts
+index b1a3a888583f8d4aa0bdfe59be9e62c97fc190d2..ff853a752a50b7d0bbce35475341286cf1bd82dc 100644
+--- a/src/sites/config.ts
++++ b/src/sites/config.ts
+@@ -1,6 +1,6 @@
+ export const BRAND = {
+-  title: "밥.net",
+-  tagline: "오늘의 메뉴를 확인해보세요",
++  title: "디미고 급식",
++  tagline: "디미고의 오늘 급식을 확인해보세요",
+   url: "https://밥.net",
+   version: "2.3.0",
+   github: {
+diff --git a/src/sites/context.tsx b/src/sites/context.tsx
+index 724e702bda294619b10e77e891d81648640faf05..87682969b18a74e38b27bbb7c58ea4a9e0c92156 100644
+--- a/src/sites/context.tsx
++++ b/src/sites/context.tsx
+@@ -1,56 +1,18 @@
+ "use client";
+ 
+-import { createContext, type ReactNode, useContext, useMemo } from "react";
++import { createContext, type ReactNode, useContext } from "react";
+ import type { SitePresentation } from "@/shared/types/index";
+ 
+-interface SiteContextValue {
+-  siteId: string | null;
+-  site: SitePresentation | null;
+-  catalog: SitePresentation[];
+-}
+-
+-const SiteContext = createContext<SiteContextValue>({
+-  siteId: null,
+-  site: null,
+-  catalog: [],
+-});
+-
+-export function SiteProvider({
+-  siteId,
+-  site,
+-  catalog,
+-  children,
+-}: {
+-  siteId: string | null;
+-  site: SitePresentation | null;
+-  catalog: SitePresentation[];
+-  children: ReactNode;
+-}) {
+-  const value = useMemo(() => ({ siteId, site, catalog }), [siteId, site, catalog]);
+-
+-  return <SiteContext.Provider value={value}>{children}</SiteContext.Provider>;
+-}
++const SiteContext = createContext<SitePresentation | null>(null);
+ 
+-export function useOptionalSiteId(): string | null {
+-  return useContext(SiteContext).siteId;
+-}
+-
+-export function useSiteId(): string {
+-  const siteId = useOptionalSiteId();
+-  if (!siteId) {
+-    throw new Error("useSiteId must be used within a resolved site");
+-  }
+-  return siteId;
++export function SiteProvider({ site, children }: { site: SitePresentation | null; children: ReactNode }) {
++  return <SiteContext.Provider value={site}>{children}</SiteContext.Provider>;
+ }
+ 
+ export function useSite(): SitePresentation {
+-  const { site } = useContext(SiteContext);
++  const site = useContext(SiteContext);
+   if (!site) {
+     throw new Error("useSite must be used within a resolved site");
+   }
+   return site;
+ }
+-
+-export function useCatalog(): SitePresentation[] {
+-  return useContext(SiteContext).catalog;
+-}
+diff --git a/src/sites/partnerAds.test.ts b/src/sites/partnerAds.test.ts
+deleted file mode 100644
+index 56ed5f45cd55aa2217205e116f45afc9bfc201ef..0000000000000000000000000000000000000000
+--- a/src/sites/partnerAds.test.ts
++++ /dev/null
+@@ -1,67 +0,0 @@
+-import { describe, expect, test } from "bun:test";
+-import { PARTNER_ADS, type PartnerAdConfig, partnerAdSlot, resolvePartnerAd, withPartnerUtm } from "@/sites/partnerAds";
+-
+-const sample: PartnerAdConfig = {
+-  mobile: "/ads/kdmhs/mobile.png",
+-  pc: "/ads/kdmhs/pc.png",
+-  href: "https://dimigo.hs.kr/club?from=poster",
+-  alt: "디미고 동아리",
+-};
+-
+-describe("resolvePartnerAd", () => {
+-  test("maps 디미고 to kdmhs and stays off until the creative is filled", () => {
+-    expect(PARTNER_ADS.kdmhs).toBeDefined();
+-    expect(resolvePartnerAd("kdmhs")).toBeNull();
+-    expect(resolvePartnerAd("dgu")).toBeNull();
+-    expect(resolvePartnerAd(null)).toBeNull();
+-  });
+-
+-  test("accepts a complete creative", () => {
+-    expect(resolvePartnerAd("kdmhs", { kdmhs: sample })).toEqual({
+-      siteId: "kdmhs",
+-      mobileSrc: sample.mobile,
+-      pcSrc: sample.pc,
+-      href: sample.href,
+-      alt: sample.alt,
+-    });
+-  });
+-
+-  test("falls back when any field, the path, or the link is unusable", () => {
+-    expect(resolvePartnerAd("kdmhs", { kdmhs: { ...sample, alt: "  " } })).toBeNull();
+-    expect(resolvePartnerAd("kdmhs", { kdmhs: { ...sample, mobile: "ads/kdmhs/mobile.png" } })).toBeNull();
+-    expect(resolvePartnerAd("kdmhs", { kdmhs: { ...sample, href: "javascript:alert(1)" } })).toBeNull();
+-    expect(resolvePartnerAd("kdmhs", { kdmhs: { ...sample, pc: "/ads/../secret.png" } })).toBeNull();
+-  });
+-});
+-
+-describe("partnerAdSlot", () => {
+-  test("names the three mobile meal cards and the single desktop slot", () => {
+-    expect(partnerAdSlot("mobile", "breakfast")).toBe("mobile-breakfast");
+-    expect(partnerAdSlot("mobile", "lunch")).toBe("mobile-lunch");
+-    expect(partnerAdSlot("mobile", "dinner")).toBe("mobile-dinner");
+-    expect(partnerAdSlot("desktop")).toBe("pc");
+-    expect(partnerAdSlot("mobile")).toBeNull();
+-  });
+-});
+-
+-describe("withPartnerUtm", () => {
+-  test("adds the bap.net campaign and keeps the existing query and hash", () => {
+-    const href = withPartnerUtm("https://dimigo.hs.kr/club?from=poster#apply", "kdmhs", "mobile-lunch");
+-    const url = new URL(href);
+-
+-    expect(url.origin + url.pathname).toBe("https://dimigo.hs.kr/club");
+-    expect(url.searchParams.get("from")).toBe("poster");
+-    expect(url.searchParams.get("utm_source")).toBe("bapnet");
+-    expect(url.searchParams.get("utm_medium")).toBe("banner");
+-    expect(url.searchParams.get("utm_campaign")).toBe("kdmhs");
+-    expect(url.searchParams.get("utm_content")).toBe("mobile-lunch");
+-    expect(url.hash).toBe("#apply");
+-  });
+-
+-  test("replaces a destination utm so the click is attributed to bap.net", () => {
+-    const url = new URL(withPartnerUtm("https://example.com/?utm_source=other&utm_content=old", "kdmhs", "pc"));
+-
+-    expect(url.searchParams.get("utm_source")).toBe("bapnet");
+-    expect(url.searchParams.get("utm_content")).toBe("pc");
+-  });
+-});
+diff --git a/src/sites/partnerAds.ts b/src/sites/partnerAds.ts
+deleted file mode 100644
+index 44dbf061887170ca34b0fa0a131ba20c9722b565..0000000000000000000000000000000000000000
+--- a/src/sites/partnerAds.ts
++++ /dev/null
+@@ -1,123 +0,0 @@
+-export interface PartnerAdConfig {
+-  /** Site-root path under `public/`. 320×100. Example: `/ads/kdmhs/mobile.png`. */
+-  mobile: string;
+-  /** Site-root path under `public/`. 728×90. Example: `/ads/kdmhs/pc.png`. */
+-  pc: string;
+-  /** Absolute http(s) URL. UTM params are added at render time. */
+-  href: string;
+-  alt: string;
+-}
+-
+-export interface PartnerAdCreative {
+-  siteId: string;
+-  mobileSrc: string;
+-  pcSrc: string;
+-  href: string;
+-  alt: string;
+-}
+-
+-/**
+- * 기관별 제휴 광고.
+- *
+- * 키는 카탈로그 provider id 입니다. 디미고(한국디지털미디어고등학교)는 `kdmhs` 입니다.
+- * `GET /` providers[].id 와 같고, basePath 는 `/kdmhs` 입니다.
+- *
+- * 소재를 넣는 방법:
+- * 1. 이미지를 `public/ads/<id>/` 에 둡니다.
+- *    - `mobile.png` — 320×100. 급식 카드 안 (아침·점심·저녁, 800px 미만).
+- *    - `pc.png` — 728×90. 끼니 카드 줄 아래 (800px 이상).
+- *    png / webp / jpg 모두 됩니다. 파일명이 다르면 아래 경로를 그 파일로 적습니다.
+- * 2. 해당 기관의 mobile, pc, href, alt 를 모두 채웁니다.
+- *    - mobile, pc: `/ads/kdmhs/mobile.png` 처럼 `/` 로 시작하는 경로
+- *    - href: https 절대 주소 하나
+- *    - alt: 배너 설명
+- * 3. 네 값 중 하나라도 비어 있거나 주소가 http(s)가 아니면 그 기관은 제휴 배너를 쓰지 않습니다.
+- *    이미지 파일 요청이 실패해도 급식 화면은 카카오 AdFit(유닛이 없으면 안내 문구)으로 돌아갑니다.
+- *
+- * 홈(사이트 선택)은 이 맵을 보지 않고 항상 AdFit 입니다.
+- * 급식 화면에서 제휴가 켜지면 모바일 3칸과 데스크톱 1칸을 모두 이 배너로 바꿉니다.
+- */
+-export const PARTNER_ADS: Record<string, PartnerAdConfig> = {
+-  kdmhs: {
+-    mobile: "",
+-    pc: "",
+-    href: "",
+-    alt: "",
+-  },
+-};
+-
+-function filled(value: string | undefined): string | null {
+-  const trimmed = value?.trim() ?? "";
+-  return trimmed ? trimmed : null;
+-}
+-
+-function isPublicAssetPath(value: string): boolean {
+-  return value.startsWith("/") && !value.startsWith("//") && !value.includes("..");
+-}
+-
+-function isHttpUrl(value: string): boolean {
+-  try {
+-    const url = new URL(value);
+-    return url.protocol === "http:" || url.protocol === "https:";
+-  } catch {
+-    return false;
+-  }
+-}
+-
+-export function resolvePartnerAd(
+-  siteId: string | null | undefined,
+-  ads: Record<string, PartnerAdConfig> = PARTNER_ADS,
+-): PartnerAdCreative | null {
+-  if (!siteId) {
+-    return null;
+-  }
+-
+-  const config = ads[siteId];
+-  if (!config) {
+-    return null;
+-  }
+-
+-  const mobile = filled(config.mobile);
+-  const pc = filled(config.pc);
+-  const href = filled(config.href);
+-  const alt = filled(config.alt);
+-  if (!mobile || !pc || !href || !alt) {
+-    return null;
+-  }
+-
+-  if (!isPublicAssetPath(mobile) || !isPublicAssetPath(pc) || !isHttpUrl(href)) {
+-    return null;
+-  }
+-
+-  return { siteId, mobileSrc: mobile, pcSrc: pc, href, alt };
+-}
+-
+-export type PartnerAdPlacement = "mobile" | "desktop";
+-
+-/**
+- * Slot stored with the event and sent as `utm_content`.
+- * Mobile meal cards: `mobile-<mealId>` (디미고: breakfast, lunch, dinner).
+- * The single desktop leaderboard: `pc`.
+- */
+-export function partnerAdSlot(placement: PartnerAdPlacement, mealId?: string): string | null {
+-  if (placement === "desktop") {
+-    return "pc";
+-  }
+-
+-  const id = mealId?.trim() ?? "";
+-  if (!id) {
+-    return null;
+-  }
+-
+-  return `mobile-${id}`;
+-}
+-
+-/** Keep existing query params and hash. Our four UTM keys are set on top. */
+-export function withPartnerUtm(href: string, siteId: string, slot: string): string {
+-  const url = new URL(href);
+-  url.searchParams.set("utm_source", "bapnet");
+-  url.searchParams.set("utm_medium", "banner");
+-  url.searchParams.set("utm_campaign", siteId);
+-  url.searchParams.set("utm_content", slot);
+-  return url.toString();
+-}
+diff --git a/src/sites/server.ts b/src/sites/server.ts
+deleted file mode 100644
+index df497ad52f31b397deefe30114bb926e134f1502..0000000000000000000000000000000000000000
+--- a/src/sites/server.ts
++++ /dev/null
+@@ -1,6 +0,0 @@
+-import { headers } from "next/headers";
+-
+-export async function getSiteId(): Promise<string | null> {
+-  const headersList = await headers();
+-  return headersList.get("x-site-id");
+-}

@@ -1,0 +1,2278 @@
+diff --git a/bun.lock b/bun.lock
+index 52a45d7fc17c5c4d68d42e8a5995b871fe157206..9f280bd2c2a922a3183be4adb1d347e266fd12d5 100644
+--- a/bun.lock
++++ b/bun.lock
+@@ -12,7 +12,6 @@
+         "elysia": "^1.4.29",
+         "marked": "^18.0.11",
+         "mongodb": "^6.21.0",
+-        "openai": "^7.5.0",
+       },
+       "devDependencies": {
+         "@biomejs/biome": "2.2.0",
+@@ -142,8 +141,6 @@
+ 
+     "nth-check": ["nth-check@2.1.1", "", { "dependencies": { "boolbase": "^1.0.0" } }, "sha512-lqjrjmaOoAnWfMmBPL+XNnynZh2+swxiX3WUE0s4yEHI6m+AwrK2UZOimIRl3X/4QctVqS8AiZjFqyOGrMXb/w=="],
+ 
+-    "openai": ["openai@7.5.0", "", { "peerDependencies": { "@aws-sdk/credential-provider-node": ">=3.972.0 <4", "@smithy/hash-node": ">=4.3.0 <5", "@smithy/signature-v4": ">=5.4.0 <6", "ws": "^8.18.0", "zod": "^3.25 || ^4.0" }, "optionalPeers": ["@aws-sdk/credential-provider-node", "@smithy/hash-node", "@smithy/signature-v4", "ws", "zod"] }, "sha512-ZbDBz8FSB8Mv8fFYIUvzTFMdV5vl93/octp1MdtK2lfYepSpfv/ewmeugpKz/cwGtFSx+YuUM4NwpZ2P55YiPA=="],
+-
+     "openapi-types": ["openapi-types@12.1.3", "", {}, "sha512-N4YtSYJqghVu4iek2ZUvcN/0aqH1kRDuNqzcycDxhOUpg7GdvLa2F3DgS6yBNhInhv2r/6I0Flkn7CqL8+nIcw=="],
+ 
+     "parse5": ["parse5@7.3.0", "", { "dependencies": { "entities": "^6.0.0" } }, "sha512-IInvU7fabl34qmi9gY8XOVxhYyMyuH2xUNpb2q8/Y+7552KlejkRvqvD19nMoUW/uQGGbqNpA6Tufu5FL5BZgw=="],
+diff --git a/package.json b/package.json
+index d00e1c72026fb80d83303927070c9da87ec67580..b5f06198235b41c9c494539cff220e467a87ce7f 100644
+--- a/package.json
++++ b/package.json
+@@ -18,8 +18,7 @@
+     "cheerio": "^1.2.0",
+     "elysia": "^1.4.29",
+     "marked": "^18.0.11",
+-    "mongodb": "^6.21.0",
+-    "openai": "^7.5.0"
++    "mongodb": "^6.21.0"
+   },
+   "scripts": {
+     "start": "bun src/index.ts",
+diff --git a/src/core/config.ts b/src/core/config.ts
+index ffbf86f063c9cd20a800096f930c64c5392e19e6..6a892ad49d3b684a17435a982d4d84420b307cb4 100644
+--- a/src/core/config.ts
++++ b/src/core/config.ts
+@@ -4,7 +4,6 @@ export const CONFIG = {
+     HOST: process.env.HOST || "localhost",
+   },
+   MONGODB_URI: process.env.MONGODB_URI || "mongodb://localhost:27017",
+-  MINDLOGIC_KEY: process.env.MINDLOGIC_KEY || "",
+   PUBLIC_API_URL: process.env.PUBLIC_API_URL || "https://api.밥.net",
+   HTTP: {
+     RETRY: {
+diff --git a/src/core/partnerAdEvent.test.ts b/src/core/partnerAdEvent.test.ts
+deleted file mode 100644
+index 0111d70148694307736c49b6ac61d1a0d8ee042b..0000000000000000000000000000000000000000
+--- a/src/core/partnerAdEvent.test.ts
++++ /dev/null
+@@ -1,82 +0,0 @@
+-import { describe, expect, test } from "bun:test";
+-import { decidePartnerAdEvent, isLikelyBot, seoulDate } from "@/core/partnerAdEvent";
+-import { partnerAdDailyUpdate } from "@/core/partnerAdStats";
+-
+-const origins = ["https://xn--rh3b.net", "https://밥.net"];
+-const meals = [{ id: "breakfast" }, { id: "lunch" }, { id: "dinner" }];
+-const browser = "Mozilla/5.0 (compatible; bap-web)";
+-
+-function decide(raw: string, extra: Partial<Parameters<typeof decidePartnerAdEvent>[0]> = {}) {
+-  return decidePartnerAdEvent({
+-    raw,
+-    origin: "https://xn--rh3b.net",
+-    userAgent: browser,
+-    origins,
+-    mealsFor: (siteId) => (siteId === "kdmhs" ? meals : null),
+-    now: new Date("2026-11-16T15:30:00.000Z"),
+-    ...extra,
+-  });
+-}
+-
+-describe("seoulDate", () => {
+-  test("uses the Asia/Seoul calendar day", () => {
+-    expect(seoulDate(new Date("2026-11-16T14:30:00.000Z"))).toBe("2026-11-16");
+-    expect(seoulDate(new Date("2026-11-16T15:30:00.000Z"))).toBe("2026-11-17");
+-  });
+-});
+-
+-describe("decidePartnerAdEvent", () => {
+-  test("records a meal-card impression on the Seoul date", () => {
+-    const decision = decide(JSON.stringify({ siteId: "kdmhs", slot: "mobile-breakfast", type: "impression" }));
+-
+-    expect(decision).toEqual({
+-      status: 204,
+-      error: null,
+-      event: { siteId: "kdmhs", date: "2026-11-17", slot: "mobile-breakfast", type: "impression" },
+-    });
+-  });
+-
+-  test("accepts the desktop slot and the other meal cards", () => {
+-    expect(decide(JSON.stringify({ siteId: "kdmhs", slot: "pc", type: "click" })).event?.slot).toBe("pc");
+-    expect(decide(JSON.stringify({ siteId: "kdmhs", slot: "mobile-dinner", type: "click" })).event?.slot).toBe(
+-      "mobile-dinner",
+-    );
+-  });
+-
+-  test("drops bots and foreign origins without an error", () => {
+-    const body = JSON.stringify({ siteId: "kdmhs", slot: "pc", type: "click" });
+-
+-    expect(decide(body, { userAgent: "curl/8.0" })).toEqual({ status: 204, event: null, error: null });
+-    expect(decide(body, { origin: "https://evil.example" })).toEqual({ status: 204, event: null, error: null });
+-    expect(decide(body, { origin: null })).toEqual({ status: 204, event: null, error: null });
+-    expect(isLikelyBot("")).toBe(true);
+-  });
+-
+-  test("rejects unknown schools, slots, and bodies", () => {
+-    expect(decide(JSON.stringify({ siteId: "nope", slot: "pc", type: "click" })).status).toBe(400);
+-    expect(decide(JSON.stringify({ siteId: "kdmhs", slot: "mobile-brunch", type: "click" })).status).toBe(400);
+-    expect(decide("not-json").status).toBe(400);
+-    expect(decide(JSON.stringify({ siteId: "kdmhs", slot: "pc", type: "view" })).status).toBe(400);
+-  });
+-});
+-
+-describe("partnerAdDailyUpdate", () => {
+-  test("increments one daily counter and does not store personal data", () => {
+-    const now = new Date("2026-11-17T00:30:00.000Z");
+-    const { filter, update } = partnerAdDailyUpdate(
+-      { siteId: "kdmhs", date: "2026-11-17", slot: "mobile-lunch", type: "click" },
+-      now,
+-    );
+-
+-    expect(filter).toEqual({ _id: "kdmhs:2026-11-17:mobile-lunch" });
+-    expect(update.$inc).toEqual({ clicks: 1 });
+-    expect(update.$set).toEqual({
+-      siteId: "kdmhs",
+-      date: "2026-11-17",
+-      slot: "mobile-lunch",
+-      updatedAt: now,
+-    });
+-    expect(update.$setOnInsert).toEqual({ createdAt: now, impressions: 0 });
+-    expect(JSON.stringify({ filter, update })).not.toMatch(/ip|userAgent|cookie/i);
+-  });
+-});
+diff --git a/src/core/partnerAdEvent.ts b/src/core/partnerAdEvent.ts
+deleted file mode 100644
+index c3b9a38fea8cbae306a6a30a821191985f1c1914..0000000000000000000000000000000000000000
+--- a/src/core/partnerAdEvent.ts
++++ /dev/null
+@@ -1,117 +0,0 @@
+-import type { PartnerAdDailyEvent, PartnerAdEventType } from "@/core/partnerAdStats";
+-
+-export interface PartnerAdMeal {
+-  id: string;
+-}
+-
+-export interface PartnerAdDecision {
+-  status: 204 | 400 | 503;
+-  event: PartnerAdDailyEvent | null;
+-  error: string | null;
+-}
+-
+-const MAX_BODY_BYTES = 512;
+-
+-export function seoulDate(now: Date): string {
+-  return new Intl.DateTimeFormat("en-CA", {
+-    timeZone: "Asia/Seoul",
+-    year: "numeric",
+-    month: "2-digit",
+-    day: "2-digit",
+-  }).format(now);
+-}
+-
+-export function isLikelyBot(userAgent: string | null): boolean {
+-  if (!userAgent || userAgent.trim().length < 12) {
+-    return true;
+-  }
+-
+-  return /bot|crawl|spider|slurp|headless|preview|wget|curl|python-requests|go-http-client|scrapy|httpclient/i.test(
+-    userAgent,
+-  );
+-}
+-
+-/** `pc` is the desktop leaderboard. Mobile cards are `mobile-<meal id>`. */
+-export function isPartnerAdSlot(slot: string, meals: readonly PartnerAdMeal[]): boolean {
+-  if (slot === "pc") {
+-    return true;
+-  }
+-
+-  const prefix = "mobile-";
+-  if (!slot.startsWith(prefix)) {
+-    return false;
+-  }
+-
+-  const mealId = slot.slice(prefix.length);
+-  if (!mealId || mealId.length > 32 || mealId.includes("/")) {
+-    return false;
+-  }
+-
+-  return meals.some((meal) => meal.id === mealId);
+-}
+-
+-function readBody(raw: string): { siteId: string; slot: string; type: PartnerAdEventType } | null {
+-  if (raw.length === 0 || raw.length > MAX_BODY_BYTES) {
+-    return null;
+-  }
+-
+-  let parsed: unknown;
+-  try {
+-    parsed = JSON.parse(raw);
+-  } catch {
+-    return null;
+-  }
+-
+-  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+-    return null;
+-  }
+-
+-  const body = parsed as Record<string, unknown>;
+-  const siteId = typeof body.siteId === "string" ? body.siteId.trim() : "";
+-  const slot = typeof body.slot === "string" ? body.slot.trim() : "";
+-  const type = body.type;
+-  if (!siteId || !slot || (type !== "impression" && type !== "click")) {
+-    return null;
+-  }
+-
+-  return { siteId, slot, type };
+-}
+-
+-/**
+- * Accept a browser beacon or drop it.
+- * Bots and requests from outside the frontend are ignored with 204 so they are not retried as errors.
+- * The caller assigns the Seoul date. The client cannot choose the bucket.
+- */
+-export function decidePartnerAdEvent(input: {
+-  raw: string;
+-  origin: string | null;
+-  userAgent: string | null;
+-  origins: readonly string[];
+-  mealsFor: (siteId: string) => readonly PartnerAdMeal[] | null;
+-  now?: Date;
+-}): PartnerAdDecision {
+-  if (!input.origin || !input.origins.includes(input.origin) || isLikelyBot(input.userAgent)) {
+-    return { status: 204, event: null, error: null };
+-  }
+-
+-  const body = readBody(input.raw);
+-  if (!body) {
+-    return { status: 400, event: null, error: "Invalid partner ad event" };
+-  }
+-
+-  const meals = input.mealsFor(body.siteId);
+-  if (!meals || !isPartnerAdSlot(body.slot, meals)) {
+-    return { status: 400, event: null, error: "Invalid partner ad event" };
+-  }
+-
+-  return {
+-    status: 204,
+-    error: null,
+-    event: {
+-      siteId: body.siteId,
+-      slot: body.slot,
+-      type: body.type,
+-      date: seoulDate(input.now ?? new Date()),
+-    },
+-  };
+-}
+diff --git a/src/core/partnerAdStats.ts b/src/core/partnerAdStats.ts
+deleted file mode 100644
+index d468da6e621dc1c3412acff0d1fccc0455f91249..0000000000000000000000000000000000000000
+--- a/src/core/partnerAdStats.ts
++++ /dev/null
+@@ -1,86 +0,0 @@
+-import type { MongoDBService } from "@/core/mongodb";
+-
+-/** Same cluster and database as 디미고 meal data (`bap`). Not a new database. */
+-export const PARTNER_AD_DB = "bap";
+-
+-/** Daily counters. One document per institution, Seoul date, and slot. */
+-export const PARTNER_AD_COLLECTION = "partner_ad_daily";
+-
+-export type PartnerAdEventType = "impression" | "click";
+-
+-export interface PartnerAdDailyEvent {
+-  siteId: string;
+-  date: string;
+-  slot: string;
+-  type: PartnerAdEventType;
+-}
+-
+-export interface PartnerAdDailyUpdate {
+-  filter: { _id: string };
+-  update: {
+-    $inc: { impressions: 1 } | { clicks: 1 };
+-    $set: { siteId: string; date: string; slot: string; updatedAt: Date };
+-    $setOnInsert: { createdAt: Date; impressions?: 0; clicks?: 0 };
+-  };
+-}
+-
+-/**
+- * Counter document in `bap.partner_ad_daily`:
+- *
+- * ```
+- * {
+- *   _id: "kdmhs:2026-11-17:mobile-breakfast",
+- *   siteId: "kdmhs",
+- *   date: "2026-11-17",
+- *   slot: "mobile-breakfast" | "mobile-lunch" | "mobile-dinner" | "pc",
+- *   impressions: 0,
+- *   clicks: 0,
+- *   createdAt: Date,
+- *   updatedAt: Date
+- * }
+- * ```
+- *
+- * No IP, user agent, or other personal data is stored.
+- */
+-export function partnerAdDailyUpdate(event: PartnerAdDailyEvent, now: Date): PartnerAdDailyUpdate {
+-  const counter = event.type === "impression" ? { impressions: 1 as const } : { clicks: 1 as const };
+-  const other = event.type === "impression" ? { clicks: 0 as const } : { impressions: 0 as const };
+-
+-  return {
+-    filter: { _id: `${event.siteId}:${event.date}:${event.slot}` },
+-    update: {
+-      $inc: counter,
+-      $set: {
+-        siteId: event.siteId,
+-        date: event.date,
+-        slot: event.slot,
+-        updatedAt: now,
+-      },
+-      $setOnInsert: {
+-        createdAt: now,
+-        ...other,
+-      },
+-    },
+-  };
+-}
+-
+-export interface PartnerAdRecorder {
+-  record(event: PartnerAdDailyEvent): Promise<void>;
+-}
+-
+-export class PartnerAdStats {
+-  constructor(private readonly db: MongoDBService) {}
+-
+-  private collection() {
+-    return this.db.getDb().collection(PARTNER_AD_COLLECTION);
+-  }
+-
+-  async ensureIndexes(): Promise<void> {
+-    await this.collection().createIndex({ siteId: 1, date: 1 });
+-  }
+-
+-  async record(event: PartnerAdDailyEvent, now = new Date()): Promise<void> {
+-    const { filter, update } = partnerAdDailyUpdate(event, now);
+-    await this.collection().updateOne(filter, update, { upsert: true });
+-  }
+-}
+diff --git a/src/core/publicMenu.test.ts b/src/core/publicMenu.test.ts
+index 75d8d36f8e6e778ad41a5f7c5b74ca1a127daf5c..f49d6e2bfa4c68c145183fd9d7d25e3437b7c791 100644
+--- a/src/core/publicMenu.test.ts
++++ b/src/core/publicMenu.test.ts
+@@ -1,11 +1,9 @@
+ import { describe, expect, test } from "bun:test";
+-import { cafeteriaToPublic, cornerMenuToPublic } from "@/core/publicMenu";
++import { cafeteriaToPublic } from "@/core/publicMenu";
+ import type { MealSlotMeta } from "@/core/types";
+-import { DGU_CONFIG } from "@/providers/dgu/config";
+ import { KDMHS_CONFIG } from "@/providers/kdmhs/config";
+ 
+ const CAFETERIA_SLOTS: MealSlotMeta[] = KDMHS_CONFIG.presentation.meals;
+-const CORNER_SLOTS: MealSlotMeta[] = DGU_CONFIG.presentation.meals;
+ 
+ describe("cafeteriaToPublic", () => {
+   test("maps regular/plus/simple, kcal, and image onto slots", () => {
+@@ -51,33 +49,3 @@ describe("cafeteriaToPublic", () => {
+     expect(result.meals[2].groups.every((group) => group.items.length === 0)).toBe(true);
+   });
+ });
+-
+-describe("cornerMenuToPublic", () => {
+-  test("maps corners onto presentation slots and fills missing meals", () => {
+-    const result = cornerMenuToPublic(CORNER_SLOTS, [
+-      {
+-        time: "중식",
+-        operatingHours: "11:30~14:00",
+-        corners: [{ name: "반식(A코너)", price: "6,500", items: ["된장찌개", "김치"] }],
+-      },
+-    ]);
+-
+-    expect(result.meals).toHaveLength(2);
+-    expect(result.meals[0]).toEqual({
+-      id: "lunch",
+-      title: "중식",
+-      operatingHours: "11:30~14:00",
+-      kcal: null,
+-      image: null,
+-      groups: [{ id: "반식(A코너)", label: "반식(A코너)", price: "6,500", items: ["된장찌개", "김치"] }],
+-    });
+-    expect(result.meals[1]).toEqual({
+-      id: "dinner",
+-      title: "석식",
+-      operatingHours: "17:00~19:00",
+-      kcal: null,
+-      image: null,
+-      groups: [],
+-    });
+-  });
+-});
+diff --git a/src/core/publicMenu.ts b/src/core/publicMenu.ts
+index 0c6e32815bb78ad9d6447d7b23d599db479ff7bc..717063af25bc944989933ea00502bf043070d4aa 100644
+--- a/src/core/publicMenu.ts
++++ b/src/core/publicMenu.ts
+@@ -11,51 +11,6 @@ export function emptyPublicMeal(slot: MealSlotMeta): PublicMeal {
+   };
+ }
+ 
+-export function fillDayMenu(slots: MealSlotMeta[], mealsById: Map<string, PublicMeal>): PublicDayMenu {
+-  return {
+-    meals: slots.map((slot) => mealsById.get(slot.id) ?? emptyPublicMeal(slot)),
+-  };
+-}
+-
+-export interface CornerSource {
+-  name: string;
+-  price: string | null;
+-  items: string[];
+-}
+-
+-export interface CornerMealSource {
+-  time: string;
+-  operatingHours: string | null;
+-  corners: CornerSource[];
+-}
+-
+-export function cornerMenuToPublic(slots: MealSlotMeta[], meals: CornerMealSource[]): PublicDayMenu {
+-  const mealsByTitle = new Map(meals.map((meal) => [meal.time, meal]));
+-
+-  return {
+-    meals: slots.map((slot) => {
+-      const found = mealsByTitle.get(slot.title);
+-      if (!found) {
+-        return emptyPublicMeal(slot);
+-      }
+-
+-      return {
+-        id: slot.id,
+-        title: slot.title,
+-        operatingHours: found.operatingHours ?? slot.operatingHours,
+-        kcal: null,
+-        image: null,
+-        groups: found.corners.map((corner) => ({
+-          id: corner.name,
+-          label: corner.name,
+-          price: corner.price,
+-          items: corner.items,
+-        })),
+-      };
+-    }),
+-  };
+-}
+-
+ export interface CafeteriaMealSource {
+   regular: string[];
+   simple: string[];
+diff --git a/src/core/types.ts b/src/core/types.ts
+index 4108c48a61a440b34103b6f95d152db3fffa2519..03f7fe2943954cbac09fb7f82d2e7c422e7b4452 100644
+--- a/src/core/types.ts
++++ b/src/core/types.ts
+@@ -33,7 +33,6 @@ export interface SitePresentation {
+   description: string;
+   keywords: string[];
+   googleSiteVerification?: string;
+-  adsenseClient?: string;
+   features: { foodSearch: boolean };
+   meals: MealSlotMeta[];
+ }
+diff --git a/src/http/app.test.ts b/src/http/app.test.ts
+index 4a59f80e6a6758c5ef91a50f3d2d980865d76b98..27ed0aa65017eb8817fdd24c135be4721fa56cf1 100644
+--- a/src/http/app.test.ts
++++ b/src/http/app.test.ts
+@@ -1,8 +1,6 @@
+ import { describe, expect, test } from "bun:test";
+ import { MealNotFoundError } from "@/core/errors";
+ import type { MongoDBService } from "@/core/mongodb";
+-import { seoulDate } from "@/core/partnerAdEvent";
+-import type { PartnerAdDailyEvent, PartnerAdRecorder } from "@/core/partnerAdStats";
+ import { APP_VERSION } from "@/core/version";
+ import { createApp } from "@/http/app";
+ import { ProviderRegistry } from "@/providers/registry";
+@@ -51,10 +49,7 @@ function fakeProvider(id: string, overrides: Partial<MealProvider> = {}): MealPr
+   };
+ }
+ 
+-function testApp(
+-  providers: MealProvider[] = [fakeProvider("kdmhs"), fakeProvider("dgu")],
+-  partnerAds?: PartnerAdRecorder,
+-) {
++function testApp(providers: MealProvider[] = [fakeProvider("kdmhs")]) {
+   const registry = new ProviderRegistry();
+   for (const provider of providers) {
+     registry.register(provider);
+@@ -62,7 +57,6 @@ function testApp(
+ 
+   return createApp({
+     registry,
+-    partnerAds,
+     mcpHandler: {
+       fetch: async (request) => {
+         const body = await request.text();
+@@ -87,7 +81,7 @@ describe("Elysia app", () => {
+     expect(response.status).toBe(200);
+     expect(body.message).toBe("api.밥.net");
+     expect(body.requestId).toEqual(expect.any(String));
+-    expect(body.providers.map((site: { id: string }) => site.id)).toEqual(["kdmhs", "dgu"]);
++    expect(body.providers.map((site: { id: string }) => site.id)).toEqual(["kdmhs"]);
+   });
+ 
+   test("GET /:provider/health returns stats", async () => {
+@@ -182,51 +176,16 @@ describe("Elysia app", () => {
+     expect(spec.paths["/{provider}/search/{food}"]).toBeDefined();
+     expect(spec.paths["/{provider}/health"]).toBeDefined();
+     expect(spec.paths["/mcp"]).toBeDefined();
+-    expect(spec.paths["/partner-ads/events"]).toBeDefined();
++    expect(spec.paths["/partner-ads/events"]).toBeUndefined();
+   });
+ 
+-  test("POST /partner-ads/events records one daily counter and ignores bots", async () => {
+-    const recorded: PartnerAdDailyEvent[] = [];
+-    const app = testApp([fakeProvider("kdmhs")], {
+-      record: async (event) => {
+-        recorded.push(event);
+-      },
+-    });
+-    const browser = {
+-      Origin: "https://xn--rh3b.net",
+-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0",
+-      "Content-Type": "text/plain;charset=UTF-8",
+-    };
+-
+-    const accepted = await app.handle(
+-      new Request("http://localhost/partner-ads/events", {
+-        method: "POST",
+-        headers: browser,
+-        body: JSON.stringify({ siteId: "kdmhs", slot: "mobile-lunch", type: "impression" }),
+-      }),
+-    );
+-    const bot = await app.handle(
+-      new Request("http://localhost/partner-ads/events", {
+-        method: "POST",
+-        headers: { ...browser, "User-Agent": "curl/8.0" },
+-        body: JSON.stringify({ siteId: "kdmhs", slot: "pc", type: "click" }),
+-      }),
+-    );
+-    const invalid = await app.handle(
+-      new Request("http://localhost/partner-ads/events", {
+-        method: "POST",
+-        headers: browser,
+-        body: JSON.stringify({ siteId: "kdmhs", slot: "mobile-breakfast", type: "click" }),
+-      }),
+-    );
+-
+-    expect(accepted.status).toBe(204);
+-    expect(accepted.headers.get("access-control-allow-origin")).toBe("https://xn--rh3b.net");
+-    expect(bot.status).toBe(204);
+-    expect(invalid.status).toBe(400);
+-    expect(recorded).toEqual([
+-      { siteId: "kdmhs", date: seoulDate(new Date()), slot: "mobile-lunch", type: "impression" },
+-    ]);
++  test("removed providers and ad tracking return 404", async () => {
++    for (const path of ["/dgu/2026-08-25", "/horang/health"]) {
++      const { response } = await json(testApp(), path);
++      expect(response.status).toBe(404);
++    }
++    const { response } = await json(testApp(), "/partner-ads/events", { method: "POST" });
++    expect(response.status).toBe(404);
+   });
+ 
+   test("POST /mcp forwards the raw body", async () => {
+diff --git a/src/http/app.ts b/src/http/app.ts
+index 1136a17fe582b78e1e93fed11e1b40cf731199b0..083ca389d336a691376fb87c9d78f49bd1594388 100644
+--- a/src/http/app.ts
++++ b/src/http/app.ts
+@@ -7,8 +7,6 @@ import { allowedFrontendOrigins, MCP_CORS } from "@/core/cors";
+ import { ApiError, MealNoOperationError, MealNotFoundError } from "@/core/errors";
+ import { logger } from "@/core/logger";
+ import { MEAL_ERROR_MESSAGES } from "@/core/mealErrors";
+-import { decidePartnerAdEvent } from "@/core/partnerAdEvent";
+-import type { PartnerAdRecorder } from "@/core/partnerAdStats";
+ import type { MealResponse } from "@/core/types";
+ import {
+   apiModels,
+@@ -30,7 +28,6 @@ export interface McpFetchHandler {
+ export interface AppDeps {
+   registry: ProviderRegistry;
+   mcpHandler: McpFetchHandler;
+-  partnerAds?: PartnerAdRecorder;
+ }
+ 
+ function requireProvider(registry: ProviderRegistry, id: string, requestId: string, timestamp: string): MealProvider {
+@@ -41,7 +38,7 @@ function requireProvider(registry: ProviderRegistry, id: string, requestId: stri
+   return provider;
+ }
+ 
+-export function createApp({ registry, mcpHandler, partnerAds }: AppDeps) {
++export function createApp({ registry, mcpHandler }: AppDeps) {
+   return new Elysia({ name: "bap-api" })
+     .decorate("registry", registry)
+     .decorate("mcpHandler", mcpHandler)
+@@ -147,51 +144,6 @@ export function createApp({ registry, mcpHandler, partnerAds }: AppDeps) {
+             },
+           },
+         )
+-        .post(
+-          "/partner-ads/events",
+-          async ({ request, requestId, timestamp, set }) => {
+-            const decision = decidePartnerAdEvent({
+-              raw: await request.text(),
+-              origin: request.headers.get("origin"),
+-              userAgent: request.headers.get("user-agent"),
+-              origins: allowedFrontendOrigins(),
+-              mealsFor: (siteId) => registry.findById(siteId)?.config.presentation.meals ?? null,
+-            });
+-
+-            if (!decision.event) {
+-              if (decision.error) {
+-                set.status = decision.status;
+-                return { requestId, timestamp, error: decision.error };
+-              }
+-
+-              set.status = 204;
+-              return null;
+-            }
+-
+-            if (!partnerAds) {
+-              set.status = 503;
+-              return { requestId, timestamp, error: "Partner ad stats are unavailable" };
+-            }
+-
+-            await partnerAds.record(decision.event);
+-            set.status = 204;
+-            return null;
+-          },
+-          {
+-            parse: "none",
+-            detail: {
+-              tags: ["Ads"],
+-              summary: "제휴 배너 노출·클릭 기록",
+-              description: [
+-                "급식 화면의 제휴 배너가 뷰포트에 보이거나 클릭되면 브라우저가 이 주소로 보냅니다.",
+-                "본문은 `{ siteId, slot, type }` 이고 `type` 은 `impression` 또는 `click` 입니다.",
+-                "슬롯은 `mobile-<끼니 id>`(디미고는 `mobile-breakfast`, `mobile-lunch`, `mobile-dinner`) 또는 데스크톱 `pc` 입니다.",
+-                "날짜는 서버의 서울 달력으로 붙고, `bap.partner_ad_daily` 일별 카운터만 올립니다. IP와 User-Agent는 저장하지 않습니다.",
+-              ].join("\n"),
+-              operationId: "recordPartnerAdEvent",
+-            },
+-          },
+-        )
+         .get("/openapi.json", ({ redirect }) => redirect("/docs/openapi.json"), {
+           detail: { hide: true },
+         })
+@@ -307,10 +259,7 @@ export function createApp({ registry, mcpHandler, partnerAds }: AppDeps) {
+                   description: [
+                     "지정한 날짜의 식단을 반환합니다. 끼니 순서는 카탈로그의 `meals` 배열과 동일합니다.",
+                     "",
+-                    "프로바이더마다 그룹 구성이 조금 다릅니다.",
+-                    "",
+                     "- **kdmhs** — `regular` / `plus` / `simple` 그룹, 칼로리(`kcal`)와 급식 사진(`image`) 포함",
+-                    "- **dgu · horang** — 코너 이름이 그룹이 되고 가격(`price`) 포함",
+                     "",
+                     `식단이 없으면 조회 범위 밖은 "${MEAL_ERROR_MESSAGES.noMealData}", 범위 안 빈 날짜(방학·휴무 등)는 "${MEAL_ERROR_MESSAGES.noMealOperation}".`,
+                   ].join("\n"),
+@@ -345,7 +294,7 @@ export function createApp({ registry, mcpHandler, partnerAds }: AppDeps) {
+               "",
+               "**잘 쓰는 법**",
+               "- 시간대는 항상 KST. `오늘`/`내일`은 호출 전에 `YYYY-MM-DD`로 바꿉니다",
+-              "- `provider`는 id(`kdmhs`, `dgu`, `horang`) 또는 이름(디미고, 동국대, 호랑). 애매하면 목록을 보고 id로 다시 호출하세요",
++              "- `provider`는 id(`kdmhs`) 또는 이름(디미고)을 사용하세요",
+               "- 한 식당·하루에 한 호출. 여러 날은 날짜마다 따로",
+               "",
+               "**리소스** — `bap://providers`, `bap://meals/{provider}/{date}`",
+diff --git a/src/http/models.ts b/src/http/models.ts
+index 850d0b036f45a58011e02b6769126def8cd7ee14..d8ea64dee95c7ce5eb4d871a353562503a66e0b5 100644
+--- a/src/http/models.ts
++++ b/src/http/models.ts
+@@ -34,7 +34,6 @@ export const SitePresentation = t.Object(
+     description: t.String(),
+     keywords: t.Array(t.String()),
+     googleSiteVerification: t.Optional(t.String()),
+-    adsenseClient: t.Optional(t.String()),
+     features: t.Object({
+       foodSearch: t.Boolean(),
+     }),
+diff --git a/src/http/openapi.ts b/src/http/openapi.ts
+index 8cd005a0894604d92371fb1ebe95371c45db7388..e724e43f1f9b3f057ed8c90713e16413106bb4f8 100644
+--- a/src/http/openapi.ts
++++ b/src/http/openapi.ts
+@@ -10,9 +10,9 @@ export function openapiInfo(registry: ProviderRegistry) {
+     title: "밥.net API",
+     version: APP_VERSION,
+     description: [
+-      "오늘 뭐 나오지? 학교·식당 급식을 하나의 API로 조회하세요.",
++      "오늘 뭐 나오지? 디미고 급식을 조회하세요.",
+       "",
+-      "어떤 프로바이더든 응답은 동일한 `PublicDayMenu` 스키마로 내려옵니다. 한 번 연동하면 새 학교가 추가돼도 코드를 고칠 필요가 없어요.",
++      "디미고의 아침·점심·저녁 식단을 `PublicDayMenu` 스키마로 제공합니다.",
+       "",
+       "### 시작하기",
+       "",
+@@ -30,7 +30,6 @@ export function openapiInfo(registry: ProviderRegistry) {
+       "",
+       "MCP를 지원합니다. `POST /mcp` (Streamable HTTP) 하나면 Cursor·Claude 같은 에이전트가 식단을 읽을 수 있어요.",
+       "",
+-      "새 학교를 추가하고 싶다면 [bap-back README](https://github.com/sspzoa/bap-back#새-프로바이더-추가)를 참고하세요.",
+     ].join("\n"),
+   };
+ }
+@@ -53,5 +52,4 @@ export const openapiTags = [
+   { name: "Search", description: "메뉴 이름으로 과거 급식 사진 찾기 (`foodSearch` 지원 프로바이더 전용)" },
+   { name: "Health", description: "프로바이더별 데이터 적재 상태" },
+   { name: "MCP", description: "AI 에이전트용 Model Context Protocol 엔드포인트" },
+-  { name: "Ads", description: "제휴 배너 노출·클릭 일별 카운터" },
+ ];
+diff --git a/src/mcp/resolve.test.ts b/src/mcp/resolve.test.ts
+index 35b8e13f88d18dd136d238167e8904dc69cfa8b0..ded81259750a8bd6a2bfd311d30222b2198f2bda 100644
+--- a/src/mcp/resolve.test.ts
++++ b/src/mcp/resolve.test.ts
+@@ -11,11 +11,11 @@ const providers = [
+     keywords: ["디미고", "급식"],
+   },
+   {
+-    id: "dgu",
+-    name: "D-Flex",
+-    schoolName: "동국대학교",
+-    basePath: "/dgu",
+-    keywords: ["동국대"],
++    id: "example",
++    name: "테스트 식당",
++    schoolName: "테스트대학교",
++    basePath: "/example",
++    keywords: ["테스트대"],
+   },
+ ];
+ 
+@@ -28,8 +28,8 @@ describe("resolveProvider", () => {
+   test("matches id, name, and keywords", () => {
+     expect(resolveProvider(providers, "kdmhs")).toEqual({ ok: true, value: providers[0] });
+     expect(resolveProvider(providers, "디미고")).toEqual({ ok: true, value: providers[0] });
+-    expect(resolveProvider(providers, "/dgu")).toEqual({ ok: true, value: providers[1] });
+-    expect(resolveProvider(providers, "동국")).toEqual({ ok: true, value: providers[1] });
++    expect(resolveProvider(providers, "/example")).toEqual({ ok: true, value: providers[1] });
++    expect(resolveProvider(providers, "테스트")).toEqual({ ok: true, value: providers[1] });
+   });
+ 
+   test("rejects empty and unknown queries", () => {
+@@ -42,7 +42,7 @@ describe("resolveProvider", () => {
+     expect(result.ok).toBe(false);
+     if (!result.ok) {
+       expect(result.message).toContain("kdmhs");
+-      expect(result.message).toContain("dgu");
++      expect(result.message).toContain("example");
+     }
+   });
+ });
+diff --git a/src/mcp/server.test.ts b/src/mcp/server.test.ts
+index b343135f24df622541e6d20a17f3ef7a2d2e6b15..833505b2e366d2cb512972b258072710dfbcaed3 100644
+--- a/src/mcp/server.test.ts
++++ b/src/mcp/server.test.ts
+@@ -56,8 +56,8 @@ const sources: McpMealSource[] = [
+     },
+   },
+   {
+-    id: "dgu",
+-    presentation: presentation("dgu", "D-Flex", "동국대학교", false),
++    id: "example",
++    presentation: presentation("example", "테스트 식당", "테스트대학교", false),
+     async getMealData() {
+       return { meals: [] };
+     },
+@@ -113,7 +113,7 @@ describe("밥.net MCP", () => {
+     const mcp = await client();
+     const result = await mcp.callTool({ name: MCP_TOOLS.listProviders, arguments: {} });
+     const body = JSON.parse(textOf(result));
+-    expect(body.providers.map((provider: { id: string }) => provider.id)).toEqual(["kdmhs", "dgu"]);
++    expect(body.providers.map((provider: { id: string }) => provider.id)).toEqual(["kdmhs", "example"]);
+     expect(body.providers[0].features.foodSearch).toBe(true);
+   });
+ 
+@@ -144,7 +144,10 @@ describe("밥.net MCP", () => {
+ 
+   test("search_food rejects providers without foodSearch", async () => {
+     const mcp = await client();
+-    const result = await mcp.callTool({ name: MCP_TOOLS.searchFood, arguments: { food: "김치전", provider: "dgu" } });
++    const result = await mcp.callTool({
++      name: MCP_TOOLS.searchFood,
++      arguments: { food: "김치전", provider: "example" },
++    });
+     expect(result.isError).toBe(true);
+     expect(textOf(result)).toContain("지원하지 않");
+   });
+diff --git a/src/mcp/server.ts b/src/mcp/server.ts
+index 80f8d4ca2d6ee5ab6d26e7bee24fe1361a3a1922..3af4dde493f9a646f7fb577b70c4657702cc14c3 100644
+--- a/src/mcp/server.ts
++++ b/src/mcp/server.ts
+@@ -165,12 +165,12 @@ export function createBapMcpServer(options: BapMcpOptions): McpServer {
+         "",
+         "When to use which tool:",
+         "- bap_list_providers — lock in a canteen id, meal slots, or whether photo search is supported. Call once per session unless the catalog may have changed.",
+-        "- bap_get_meals — the default tool for a day's (or one slot's) menu text, corners, prices, kcal, and plated photos when the provider has them.",
++        "- bap_get_meals — the default tool for a day's (or one slot's) menu text, kcal, and plated photos when the provider has them.",
+         "- bap_search_food — archive image search by dish name. Not today's menu list.",
+         "",
+         "How to use well:",
+         "- Timezone is always Asia/Seoul (KST). Convert '오늘/내일' and weekdays to YYYY-MM-DD before calling. Never send those words as date, and never invent a date.",
+-        "- provider accepts an id (kdmhs, dgu, horang) or a name/keyword (디미고, 동국대, 호랑). If several places match, list providers and retry with the id. Do not guess.",
++        "- provider accepts an id (kdmhs) or a name/keyword (디미고). If several places match, list providers and retry with the id. Do not guess.",
+         "- One canteen and one calendar day per call. For a range, call once per date.",
+         "",
+         `Registered providers: ${catalog}`,
+@@ -192,7 +192,7 @@ export function createBapMcpServer(options: BapMcpOptions): McpServer {
+         "",
+         "How to use well:",
+         "- Call once to lock in an id, then pass that id to bap_get_meals / bap_search_food. Do not re-call in the same session if you already have the catalog.",
+-        "- If the user named a school in Korean (디미고, 동국대, 호랑), still start here when you are not sure which id to send.",
++        "- If the user named a school in Korean (디미고), still start here when you are not sure which id to send.",
+         "",
+         "Returns JSON { providers: [{ id, name, schoolName, basePath, description, features.foodSearch, meals: [{ id, title, operatingHours, activeUntilHour }] }] }",
+         `Currently registered: ${catalog}`,
+@@ -207,10 +207,10 @@ export function createBapMcpServer(options: BapMcpOptions): McpServer {
+     {
+       title: "밥.net 날짜별 식단",
+       description: [
+-        "한 식당의 하루 식단을 가져옵니다. 메뉴 항목, 코너, 가격, 있으면 칼로리·사진까지 포함합니다. 식단 질의의 기본 도구입니다. 오늘 메뉴가 아니라 과거에 나온 메뉴 사진을 찾는 도구가 아닙니다.",
++        "디미고의 하루 식단을 가져옵니다. 메뉴 항목과 제공되는 칼로리·사진을 포함합니다. 식단 질의의 기본 도구입니다. 오늘 메뉴가 아니라 과거에 나온 메뉴 사진을 찾는 도구가 아닙니다.",
+         "",
+         "When to use this vs other tools:",
+-        "- Use this for concrete menus: '오늘 디미고 점심', '동국대 석식', '호랑 내일 메뉴'.",
++        "- Use this for concrete menus: '오늘 디미고 점심', '디미고 석식', '디미고 내일 메뉴'.",
+         "- Use bap_list_providers first when the provider id is unknown or several places could match.",
+         "- Use bap_search_food when the user wants a photo of a dish ('김치전 사진', '이거 어떻게 생겼어'), not today's item list.",
+         "",
+@@ -218,11 +218,10 @@ export function createBapMcpServer(options: BapMcpOptions): McpServer {
+         "- One canteen and one calendar day per call. For a date range, call once per date.",
+         "- Convert relative days ('오늘', '내일', '월요일') to YYYY-MM-DD in Asia/Seoul before calling. Do not guess a date string. Omit date to mean today (KST).",
+         "- Pass meal only when the user asked for a single slot. Slot id or title fragment: breakfast, lunch, dinner, 아침, 점심, 중식, 저녁, 석식. Omit to return every meal that day.",
+-        "- Prefer a catalog id (kdmhs, dgu, horang) over a nickname once you have it.",
++        "- Prefer a catalog id (kdmhs) over a nickname once you have it.",
+         "",
+         "Provider shapes:",
+         "- Cafeteria (kdmhs): groups are regular / plus(플러스바) / simple(간편식). kcal and image may be present.",
+-        "- Corner (dgu, horang): groups are corner names with price (KRW). kcal and image are usually null.",
+         "",
+         "Errors:",
+         "- Provider not found or ambiguous → call bap_list_providers, then retry with the id.",
+@@ -233,7 +232,7 @@ export function createBapMcpServer(options: BapMcpOptions): McpServer {
+         "Returns JSON { provider: { id, name, schoolName }, date, meals: [{ id, title, operatingHours, kcal, image, groups: [{ id, label, price, items }] }] }",
+         "",
+         '<example description="오늘 디미고 점심">{"provider":"kdmhs","meal":"lunch"}</example>',
+-        '<example description="동국대 내일 석식">{"provider":"dgu","date":"YYYY-MM-DD","meal":"dinner"}</example>',
++        '<example description="디미고 내일 저녁">{"provider":"kdmhs","date":"YYYY-MM-DD","meal":"dinner"}</example>',
+         `Currently registered: ${catalog}`,
+       ].join("\n"),
+       annotations: READ_ONLY,
+@@ -242,7 +241,7 @@ export function createBapMcpServer(options: BapMcpOptions): McpServer {
+           .string()
+           .min(1)
+           .describe(
+-            "Canteen id or name/keyword. Prefer a catalog id once known: kdmhs, dgu, horang. Korean aliases also work (디미고, 동국대, 호랑). If several places match, do not guess — list providers and retry with the id. Do not pass an empty string.",
++            "Canteen id or name/keyword. Prefer a catalog id once known: kdmhs. Korean aliases also work (디미고). If several places match, do not guess — list providers and retry with the id. Do not pass an empty string.",
+           ),
+         date: z
+           .string()
+@@ -278,7 +277,7 @@ export function createBapMcpServer(options: BapMcpOptions): McpServer {
+         "",
+         "When to use this vs other tools:",
+         "- Use this when the user wants a photo: '김치전 사진', '이 메뉴 어떻게 생겼어', '예전에 나온 돈가스'.",
+-        "- Use bap_get_meals for today's (or any day's) menu text, calories, corners, and prices.",
++        "- Use bap_get_meals for today's (or any day's) menu text and calories.",
+         "- Use bap_list_providers to see which canteens have features.foodSearch before searching.",
+         "",
+         "How to use well:",
+diff --git a/src/providers/dgu/config.ts b/src/providers/dgu/config.ts
+deleted file mode 100644
+index 09377eb20b67daa60436dbed1c2957759ed4957f..0000000000000000000000000000000000000000
+--- a/src/providers/dgu/config.ts
++++ /dev/null
+@@ -1,46 +0,0 @@
+-import type { ProviderConfig } from "@/providers/types";
+-
+-export const DGU_CONFIG: ProviderConfig = {
+-  id: "dgu",
+-  name: "동국대학교 경영관 D-Flex",
+-  basePath: "/dgu",
+-  dbName: "dgu-bap",
+-  collection: "meal_data",
+-  presentation: {
+-    id: "dgu",
+-    name: "D-Flex 학식",
+-    schoolName: "동국대학교 경영관 D-Flex",
+-    basePath: "/dgu",
+-    description: "D-Flex 학식을 확인해보세요",
+-    keywords: ["학식", "동국대", "D-Flex", "경영관", "식단", "밥.net"],
+-    features: { foodSearch: false },
+-    meals: [
+-      {
+-        id: "lunch",
+-        title: "중식",
+-        operatingHours: "11:30~14:00",
+-        icon: "/icon/lunch.svg",
+-        background: "/img/lunch.svg",
+-        activeUntilHour: 14,
+-      },
+-      {
+-        id: "dinner",
+-        title: "석식",
+-        operatingHours: "17:00~19:00",
+-        icon: "/icon/dinner.svg",
+-        background: "/img/dinner.svg",
+-        activeUntilHour: 20,
+-      },
+-    ],
+-  },
+-  schedule: [
+-    // 주간 식단표는 한 번 게시되면 거의 바뀌지 않으므로 토요일 새벽 3시에 주 1회만 전체 OCR.
+-    { day: 6, hour: 3, minute: 0, refreshType: "all" },
+-  ],
+-};
+-
+-export const DFLEX_WEBSITE = {
+-  BASE_URL: "https://www.dongguk.edu",
+-  LIST_PATH: "/article/FOODDFLEX/list",
+-  DETAIL_PATH: "/article/FOODDFLEX/detail",
+-} as const;
+diff --git a/src/providers/dgu/index.ts b/src/providers/dgu/index.ts
+deleted file mode 100644
+index d5fc7369d8c8f6756c25e7521f56d91cab95db6f..0000000000000000000000000000000000000000
+--- a/src/providers/dgu/index.ts
++++ /dev/null
+@@ -1,38 +0,0 @@
+-import { CONFIG } from "@/core/config";
+-import { MongoDBService } from "@/core/mongodb";
+-import { cornerMenuToPublic } from "@/core/publicMenu";
+-import type { PublicDayMenu } from "@/core/types";
+-import { DGU_CONFIG } from "@/providers/dgu/config";
+-import { getDguMenu, runDguRefresh } from "@/providers/dgu/service";
+-import type { MealProvider } from "@/providers/types";
+-
+-export function createDguProvider(): MealProvider {
+-  const config = DGU_CONFIG;
+-  const db = new MongoDBService(CONFIG.MONGODB_URI, config.dbName, config.collection);
+-
+-  return {
+-    config,
+-    db,
+-
+-    async init() {
+-      await db.connect();
+-      await db.createIndexes([{ key: { updatedAt: 1 } }]);
+-    },
+-
+-    async shutdown() {
+-      await db.disconnect();
+-    },
+-
+-    async getMealData(date: string): Promise<PublicDayMenu> {
+-      return cornerMenuToPublic(config.presentation.meals, (await getDguMenu(db, date)).meals);
+-    },
+-
+-    async getStats() {
+-      return db.getStats();
+-    },
+-
+-    async runRefresh(type: "today" | "all") {
+-      return runDguRefresh(db, type);
+-    },
+-  };
+-}
+diff --git a/src/providers/dgu/ocr.ts b/src/providers/dgu/ocr.ts
+deleted file mode 100644
+index c9e83db96edc96f0f90fed008f28cf4988d52a8f..0000000000000000000000000000000000000000
+--- a/src/providers/dgu/ocr.ts
++++ /dev/null
+@@ -1,181 +0,0 @@
+-import OpenAI from "openai";
+-import { CONFIG } from "@/core/config";
+-import type { MenuImage } from "@/providers/dgu/scrape";
+-import type { DguMeal } from "@/providers/dgu/types";
+-
+-// 마인드로직(동국대) 게이트웨이의 OpenAI Chat Completions 엔드포인트로 고정.
+-const GATEWAY_BASE_URL = "https://factchat-cloud.mindlogic.ai/v1/gateway";
+-// 게이트웨이가 허용하는 모델만 사용 가능 (GET /v1/gateway/models/ 로 확인).
+-const OCR_MODEL = "gpt-6-luna";
+-const TOOL_NAME = "submit_weekly_menu";
+-
+-interface OcrCorner {
+-  name: string;
+-  price: string;
+-  items: string[];
+-}
+-
+-interface OcrMeal {
+-  time: string;
+-  operatingHours: string;
+-  corners: OcrCorner[];
+-}
+-
+-interface OcrDay {
+-  date: string;
+-  meals: OcrMeal[];
+-}
+-
+-interface OcrResult {
+-  days: OcrDay[];
+-}
+-
+-function emptyToNull(value: string): string | null {
+-  const trimmed = value.trim();
+-  return trimmed.length > 0 ? trimmed : null;
+-}
+-
+-const MENU_TOOL: OpenAI.Chat.ChatCompletionFunctionTool = {
+-  type: "function",
+-  function: {
+-    name: TOOL_NAME,
+-    description: "동국대학교 경영관 D-Flex 학식 주간 식단표 이미지에서 추출한 메뉴를 날짜별로 제출합니다.",
+-    strict: true,
+-    parameters: {
+-      type: "object",
+-      additionalProperties: false,
+-      properties: {
+-        days: {
+-          type: "array",
+-          description: "요청된 각 날짜별 메뉴",
+-          items: {
+-            type: "object",
+-            additionalProperties: false,
+-            properties: {
+-              date: { type: "string", description: "YYYY-MM-DD 형식의 날짜" },
+-              meals: {
+-                type: "array",
+-                description: "식사 시간 목록 (중식, 석식)",
+-                items: {
+-                  type: "object",
+-                  additionalProperties: false,
+-                  properties: {
+-                    time: { type: "string", description: "식사 시간 이름 — '중식' 또는 '석식'" },
+-                    operatingHours: {
+-                      type: "string",
+-                      description: "운영 시간 (예: '11:30~14:00'). 표기가 없으면 빈 문자열 ''",
+-                    },
+-                    corners: {
+-                      type: "array",
+-                      description: "해당 식사 시간의 코너 목록 (중식: 일반식/특식, 석식: 단일)",
+-                      items: {
+-                        type: "object",
+-                        additionalProperties: false,
+-                        properties: {
+-                          name: {
+-                            type: "string",
+-                            description: "코너 이름 (예: '일반식(A코너)', '특식(B코너)', '석식')",
+-                          },
+-                          price: {
+-                            type: "string",
+-                            description: "코너 가격, 숫자와 콤마만 (예: '6,500'). 표기가 없으면 빈 문자열 ''",
+-                          },
+-                          items: {
+-                            type: "array",
+-                            description: "메뉴 품목 이름 목록. 가격/원산지/빈 줄 제외, 대표 메뉴를 맨 앞에",
+-                            items: { type: "string" },
+-                          },
+-                        },
+-                        required: ["name", "price", "items"],
+-                      },
+-                    },
+-                  },
+-                  required: ["time", "operatingHours", "corners"],
+-                },
+-              },
+-            },
+-            required: ["date", "meals"],
+-          },
+-        },
+-      },
+-      required: ["days"],
+-    },
+-  },
+-};
+-
+-function buildPrompt(expectedDates: { date: string; weekday: string }[]): string {
+-  const dateLines = expectedDates.map((d) => `- ${d.date} (${d.weekday}요일)`).join("\n");
+-  return [
+-    "이 이미지는 동국대학교 경영관 D-Flex 학식의 한 주간 식단표입니다.",
+-    "표의 가로(열)는 요일, 세로(행)는 식사 시간(중식·석식)과 코너입니다.",
+-    "중식은 보통 '일반식(A코너)'과 '특식(B코너)' 두 코너, 석식은 단일 코너입니다.",
+-    "각 칸에는 대표 메뉴, 그 아래 품목들이 들어 있고, 행 라벨 쪽에 코너 가격과 운영 시간이 있습니다.",
+-    "",
+-    "아래 날짜들이 이 표의 각 요일 열에 순서대로 대응됩니다. 각 날짜마다 그 열의 중식·석식과 모든 코너를 추출하세요:",
+-    dateLines,
+-    "",
+-    "규칙:",
+-    "- meals[].time 은 '중식' 또는 '석식'.",
+-    "- corners[].name 은 코너 이름만 (예: '일반식(A코너)', '특식(B코너)', '석식').",
+-    "- corners[].items 에는 음식 이름만 넣고 가격(원/₩)·원산지·운영시간·빈 줄은 제외. 대표 메뉴를 맨 앞에.",
+-    "- price 는 숫자와 콤마만 (예: '6,500'). 없으면 빈 문자열 ''.",
+-    "- operatingHours 는 해당 식사 시간의 운영 시간 (예: '11:30~14:00'). 없으면 빈 문자열 ''.",
+-    "- 메뉴가 비어 있는 날짜는 meals 를 빈 배열로 두되, 요청된 날짜는 모두 days 에 포함하세요.",
+-    `- ${TOOL_NAME} 도구로만 결과를 제출하세요.`,
+-  ].join("\n");
+-}
+-
+-/**
+- * Run vision OCR on a weekly D-Flex menu image and return a map of
+- * YYYY-MM-DD -> that day's meals (중식/석식 with their corners).
+- */
+-export async function extractWeeklyMenu(
+-  image: MenuImage,
+-  expectedDates: { date: string; weekday: string }[],
+-): Promise<Map<string, DguMeal[]>> {
+-  if (!CONFIG.MINDLOGIC_KEY) {
+-    throw new Error("MINDLOGIC_KEY is not configured; cannot run D-Flex menu OCR");
+-  }
+-
+-  const client = new OpenAI({ apiKey: CONFIG.MINDLOGIC_KEY, baseURL: GATEWAY_BASE_URL });
+-
+-  const response = await client.chat.completions.create({
+-    model: OCR_MODEL,
+-    max_completion_tokens: 16000,
+-    reasoning_effort: "none",
+-    tools: [MENU_TOOL],
+-    tool_choice: { type: "function", function: { name: TOOL_NAME } },
+-    messages: [
+-      {
+-        role: "user",
+-        content: [
+-          { type: "image_url", image_url: { url: `data:${image.mediaType};base64,${image.data}` } },
+-          { type: "text", text: buildPrompt(expectedDates) },
+-        ],
+-      },
+-    ],
+-  });
+-
+-  const toolCall = response.choices[0]?.message.tool_calls?.[0];
+-  if (!toolCall || toolCall.type !== "function") {
+-    throw new Error("D-Flex menu OCR returned no function tool call");
+-  }
+-
+-  const result = JSON.parse(toolCall.function.arguments) as OcrResult;
+-  const mealsByDate = new Map<string, DguMeal[]>();
+-
+-  for (const day of result.days) {
+-    const meals: DguMeal[] = day.meals.map((meal) => ({
+-      time: meal.time,
+-      operatingHours: emptyToNull(meal.operatingHours),
+-      corners: meal.corners.map((corner) => ({
+-        name: corner.name,
+-        price: emptyToNull(corner.price),
+-        items: corner.items,
+-      })),
+-    }));
+-    mealsByDate.set(day.date, meals);
+-  }
+-
+-  return mealsByDate;
+-}
+diff --git a/src/providers/dgu/scrape.test.ts b/src/providers/dgu/scrape.test.ts
+deleted file mode 100644
+index a96b20286537b98e8518f33b80f9d6079765a8bd..0000000000000000000000000000000000000000
+--- a/src/providers/dgu/scrape.test.ts
++++ /dev/null
+@@ -1,32 +0,0 @@
+-import { describe, expect, test } from "bun:test";
+-import { type DflexArticle, enumerateWeekdays, findArticleForDate } from "./scrape";
+-
+-function article(weekStart: string, weekEnd: string, seq = 1): DflexArticle {
+-  return { seq, title: `${weekStart} ~ ${weekEnd}`, weekStart, weekEnd };
+-}
+-
+-describe("findArticleForDate", () => {
+-  const week = article("2026-08-17", "2026-08-21");
+-
+-  test("matches Monday–Saturday of the operating week", () => {
+-    expect(findArticleForDate([week], "2026-08-17")?.seq).toBe(1);
+-    expect(findArticleForDate([week], "2026-08-20")?.seq).toBe(1);
+-    expect(findArticleForDate([week], "2026-08-22")?.seq).toBe(1);
+-  });
+-
+-  test("does not match the previous Sunday", () => {
+-    expect(findArticleForDate([week], "2026-08-16")).toBeNull();
+-  });
+-});
+-
+-describe("enumerateWeekdays", () => {
+-  test("includes both ends", () => {
+-    expect(enumerateWeekdays("2026-08-17", "2026-08-21")).toEqual([
+-      "2026-08-17",
+-      "2026-08-18",
+-      "2026-08-19",
+-      "2026-08-20",
+-      "2026-08-21",
+-    ]);
+-  });
+-});
+diff --git a/src/providers/dgu/scrape.ts b/src/providers/dgu/scrape.ts
+deleted file mode 100644
+index e7af28667d6adc468a58583fc19954867ac1632c..0000000000000000000000000000000000000000
+--- a/src/providers/dgu/scrape.ts
++++ /dev/null
+@@ -1,114 +0,0 @@
+-import * as cheerio from "cheerio";
+-import { DFLEX_WEBSITE } from "@/providers/dgu/config";
+-import { formatDate, getWeekDates, parseLocalDate } from "@/utils/date";
+-import { fetchWithRetry } from "@/utils/fetch";
+-
+-const USER_AGENT =
+-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36";
+-
+-const WEEK_RANGE = /\[(\d{4})\.(\d{2})\.(\d{2})\.\s*~\s*(\d{4})\.(\d{2})\.(\d{2})\.\]/;
+-
+-export interface DflexArticle {
+-  seq: number;
+-  title: string;
+-  /** YYYY-MM-DD, first operating day of the week */
+-  weekStart: string;
+-  /** YYYY-MM-DD, last operating day of the week */
+-  weekEnd: string;
+-}
+-
+-function parseWeekRange(title: string): { weekStart: string; weekEnd: string } | null {
+-  const match = title.match(WEEK_RANGE);
+-  if (!match) return null;
+-  return {
+-    weekStart: `${match[1]}-${match[2]}-${match[3]}`,
+-    weekEnd: `${match[4]}-${match[5]}-${match[6]}`,
+-  };
+-}
+-
+-async function fetchHtml(url: string): Promise<string> {
+-  return fetchWithRetry<string>(url, {
+-    method: "GET",
+-    headers: { "User-Agent": USER_AGENT, Accept: "text/html" },
+-    parser: async (response) => response.text(),
+-  });
+-}
+-
+-/** Fetch one page of the FOODDFLEX board and parse the weekly-menu articles. */
+-export async function fetchArticleList(pageIndex = 1): Promise<DflexArticle[]> {
+-  const url = `${DFLEX_WEBSITE.BASE_URL}${DFLEX_WEBSITE.LIST_PATH}?pageIndex=${pageIndex}`;
+-  const html = await fetchHtml(url);
+-  const $ = cheerio.load(html);
+-
+-  const articles: DflexArticle[] = [];
+-  $(".board_list li a").each((_, el) => {
+-    const onclick = $(el).attr("onclick") || "";
+-    const seqMatch = onclick.match(/goDetail\((\d+)\)/);
+-    if (!seqMatch) return;
+-
+-    const title = $(el).find(".tit").text().replace(/\s+/g, " ").trim();
+-    const range = parseWeekRange(title);
+-    if (!range) return;
+-
+-    articles.push({ seq: Number.parseInt(seqMatch[1], 10), title, weekStart: range.weekStart, weekEnd: range.weekEnd });
+-  });
+-
+-  return articles;
+-}
+-
+-/** Find the article whose operating week (Mon–Sun) contains the given date. */
+-export function findArticleForDate(articles: DflexArticle[], date: string): DflexArticle | null {
+-  const monday = getWeekDates(date)[0];
+-  return articles.find((article) => getWeekDates(article.weekStart)[0] === monday) ?? null;
+-}
+-
+-/** Extract the embedded weekly-menu image URL from an article's detail page. */
+-export async function fetchArticleImageUrl(seq: number): Promise<string | null> {
+-  const url = `${DFLEX_WEBSITE.BASE_URL}${DFLEX_WEBSITE.DETAIL_PATH}/${seq}`;
+-  const html = await fetchHtml(url);
+-  const $ = cheerio.load(html);
+-
+-  const src = $(".view_cont img").first().attr("src");
+-  if (!src) return null;
+-
+-  return src.startsWith("http") ? src : `${DFLEX_WEBSITE.BASE_URL}${src}`;
+-}
+-
+-export type MenuImageMediaType = "image/png" | "image/jpeg" | "image/gif" | "image/webp";
+-
+-export interface MenuImage {
+-  data: string;
+-  mediaType: MenuImageMediaType;
+-}
+-
+-function detectMediaType(bytes: Uint8Array): MenuImageMediaType {
+-  if (bytes[0] === 0xff && bytes[1] === 0xd8) return "image/jpeg";
+-  if (bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46) return "image/gif";
+-  if (bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[8] === 0x57 && bytes[9] === 0x45) return "image/webp";
+-  return "image/png";
+-}
+-
+-/** Download the menu image as base64 plus its detected media type for vision OCR. */
+-export async function fetchImage(url: string): Promise<MenuImage> {
+-  const buffer = await fetchWithRetry<ArrayBuffer>(url, {
+-    method: "GET",
+-    headers: { "User-Agent": USER_AGENT },
+-    parser: async (response) => response.arrayBuffer(),
+-  });
+-  const bytes = new Uint8Array(buffer);
+-  return { data: Buffer.from(buffer).toString("base64"), mediaType: detectMediaType(bytes) };
+-}
+-
+-/** Inclusive list of YYYY-MM-DD dates from weekStart to weekEnd (the operating days). */
+-export function enumerateWeekdays(weekStart: string, weekEnd: string): string[] {
+-  const dates: string[] = [];
+-  const cursor = parseLocalDate(weekStart);
+-  const end = parseLocalDate(weekEnd);
+-
+-  while (cursor.getTime() <= end.getTime()) {
+-    dates.push(formatDate(cursor));
+-    cursor.setDate(cursor.getDate() + 1);
+-  }
+-
+-  return dates;
+-}
+diff --git a/src/providers/dgu/service.ts b/src/providers/dgu/service.ts
+deleted file mode 100644
+index bd4ef04f061c490c858d001ed68054205b9601f8..0000000000000000000000000000000000000000
+--- a/src/providers/dgu/service.ts
++++ /dev/null
+@@ -1,112 +0,0 @@
+-import { logger } from "@/core/logger";
+-import { getCachedMealDataOrThrow } from "@/core/mealLookup";
+-import type { MongoDBService } from "@/core/mongodb";
+-import { extractWeeklyMenu } from "@/providers/dgu/ocr";
+-import {
+-  type DflexArticle,
+-  enumerateWeekdays,
+-  fetchArticleImageUrl,
+-  fetchArticleList,
+-  fetchImage,
+-  findArticleForDate,
+-} from "@/providers/dgu/scrape";
+-import type { DguMenu } from "@/providers/dgu/types";
+-import { formatDate, getWeekDates } from "@/utils/date";
+-
+-const WEEKDAY_LABELS = ["일", "월", "화", "수", "목", "금", "토"];
+-
+-function emptyMenu(): DguMenu {
+-  return { meals: [] };
+-}
+-
+-function weekdayLabel(dateStr: string): string {
+-  const [year, month, day] = dateStr.split("-").map(Number);
+-  return WEEKDAY_LABELS[new Date(year, month - 1, day).getDay()];
+-}
+-
+-/**
+- * Fetch the article's menu image, OCR the whole week in one call, and persist
+- * one document per operating day. Returns the per-date menu that was saved.
+- */
+-async function refreshWeekFromArticle(db: MongoDBService, article: DflexArticle): Promise<Map<string, DguMenu>> {
+-  const refreshLogger = logger.operation("dgu-refresh-week");
+-  const dates = enumerateWeekdays(article.weekStart, article.weekEnd);
+-  const result = new Map<string, DguMenu>();
+-
+-  const imageUrl = await fetchArticleImageUrl(article.seq);
+-  if (!imageUrl) {
+-    refreshLogger.warn(`No menu image found for article ${article.seq} (${article.title})`);
+-    for (const date of dates) {
+-      const data = emptyMenu();
+-      await db.saveMealData(date, data);
+-      result.set(date, data);
+-    }
+-    return result;
+-  }
+-
+-  const image = await fetchImage(imageUrl);
+-  const expectedDates = dates.map((date) => ({ date, weekday: weekdayLabel(date) }));
+-  const mealsByDate = await extractWeeklyMenu(image, expectedDates);
+-
+-  for (const date of dates) {
+-    const data: DguMenu = { meals: mealsByDate.get(date) ?? [] };
+-    await db.saveMealData(date, data);
+-    result.set(date, data);
+-    refreshLogger.info(`Saved D-Flex ${date}: ${data.meals.length} meals`);
+-  }
+-
+-  return result;
+-}
+-
+-export async function getDguMenu(db: MongoDBService, dateParam: string): Promise<DguMenu> {
+-  return getCachedMealDataOrThrow<DguMenu>(db, dateParam);
+-}
+-
+-export async function runDguRefresh(db: MongoDBService, refreshType: "today" | "all"): Promise<void> {
+-  const refreshLogger = logger.operation("dgu-refresh");
+-  const timer = refreshLogger.time();
+-
+-  try {
+-    refreshLogger.info(`Starting D-Flex cafeteria data refresh (${refreshType})`);
+-
+-    const today = formatDate(new Date());
+-    const targetDates =
+-      refreshType === "all"
+-        ? [...getWeekDates(today), ...getWeekDates(formatDate(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)))]
+-        : [today];
+-
+-    const articles =
+-      refreshType === "all"
+-        ? [...(await fetchArticleList(1)), ...(await fetchArticleList(2))]
+-        : await fetchArticleList(1);
+-
+-    const processed = new Set<number>();
+-    const toProcess: DflexArticle[] = [];
+-    for (const date of targetDates) {
+-      const article = findArticleForDate(articles, date);
+-      if (article && !processed.has(article.seq)) {
+-        processed.add(article.seq);
+-        toProcess.push(article);
+-      }
+-    }
+-
+-    let successCount = 0;
+-    let errorCount = 0;
+-
+-    for (const article of toProcess) {
+-      try {
+-        await refreshWeekFromArticle(db, article);
+-        refreshLogger.info(`✓ Completed D-Flex week ${article.weekStart} ~ ${article.weekEnd}`);
+-        successCount++;
+-      } catch (error) {
+-        errorCount++;
+-        refreshLogger.error(`✗ Failed D-Flex week ${article.weekStart} ~ ${article.weekEnd}`, error);
+-      }
+-    }
+-
+-    timer(`D-Flex refresh completed (${refreshType}): ${successCount} success, ${errorCount} errors`);
+-  } catch (error) {
+-    refreshLogger.error("D-Flex cafeteria refresh failed", error);
+-    throw error;
+-  }
+-}
+diff --git a/src/providers/dgu/types.ts b/src/providers/dgu/types.ts
+deleted file mode 100644
+index 2e857c8fc45aa5e63cac661cfc5522c58c966130..0000000000000000000000000000000000000000
+--- a/src/providers/dgu/types.ts
++++ /dev/null
+@@ -1,20 +0,0 @@
+-export interface DguMenuCorner {
+-  /** 코너 이름 — "반식(A코너)", "특식(B코너)", "석식" 등 */
+-  name: string;
+-  /** 코너 가격 — "6,500" (숫자+콤마). 없으면 null */
+-  price: string | null;
+-  /** 메뉴 품목 이름 목록 */
+-  items: string[];
+-}
+-
+-export interface DguMeal {
+-  /** 식사 시간 — "중식", "석식" */
+-  time: string;
+-  /** 운영 시간 — "11:30~14:00". 없으면 null */
+-  operatingHours: string | null;
+-  corners: DguMenuCorner[];
+-}
+-
+-export interface DguMenu {
+-  meals: DguMeal[];
+-}
+diff --git a/src/providers/horang/config.ts b/src/providers/horang/config.ts
+deleted file mode 100644
+index aca72cbdd4bba72d72919b7594bc760ce5ea1b44..0000000000000000000000000000000000000000
+--- a/src/providers/horang/config.ts
++++ /dev/null
+@@ -1,47 +0,0 @@
+-import type { ProviderConfig } from "@/providers/types";
+-
+-export const HORANG_CONFIG: ProviderConfig = {
+-  id: "horang",
+-  name: "호랑에듀 구내식당",
+-  basePath: "/horang",
+-  dbName: "horang-bap",
+-  collection: "meal_data",
+-  presentation: {
+-    id: "horang",
+-    name: "호랑에듀 구내식당",
+-    schoolName: "메가스터디 구내식당",
+-    basePath: "/horang",
+-    description: "호랑에듀 구내식당 메뉴를 확인해보세요",
+-    keywords: ["구내식당", "호랑에듀", "horang-edu", "식단", "밥.net"],
+-    features: { foodSearch: false },
+-    meals: [
+-      {
+-        id: "lunch",
+-        title: "중식",
+-        operatingHours: null,
+-        icon: "/icon/lunch.svg",
+-        background: "/img/lunch.svg",
+-        activeUntilHour: 14,
+-      },
+-      {
+-        id: "dinner",
+-        title: "석식",
+-        operatingHours: null,
+-        icon: "/icon/dinner.svg",
+-        background: "/img/dinner.svg",
+-        activeUntilHour: 20,
+-      },
+-    ],
+-  },
+-  schedule: [
+-    // 주간 식단표는 보통 전주 금요일에 올라오고 거의 바뀌지 않으므로 토요일 새벽 3시에 주 1회 OCR.
+-    { day: 6, hour: 3, minute: 0, refreshType: "all" },
+-  ],
+-};
+-
+-export const HORANG_BLOG = {
+-  BLOG_ID: "megafs01",
+-  CATEGORY_NO: 41,
+-  LIST_URL: "https://blog.naver.com/PostTitleListAsync.naver",
+-  POST_VIEW_URL: "https://m.blog.naver.com/PostView.naver",
+-} as const;
+diff --git a/src/providers/horang/index.ts b/src/providers/horang/index.ts
+deleted file mode 100644
+index 268f1926bc82c73a1a71e620732687bcee76ad13..0000000000000000000000000000000000000000
+--- a/src/providers/horang/index.ts
++++ /dev/null
+@@ -1,38 +0,0 @@
+-import { CONFIG } from "@/core/config";
+-import { MongoDBService } from "@/core/mongodb";
+-import { cornerMenuToPublic } from "@/core/publicMenu";
+-import type { PublicDayMenu } from "@/core/types";
+-import { HORANG_CONFIG } from "@/providers/horang/config";
+-import { getHorangMenu, runHorangRefresh } from "@/providers/horang/service";
+-import type { MealProvider } from "@/providers/types";
+-
+-export function createHorangProvider(): MealProvider {
+-  const config = HORANG_CONFIG;
+-  const db = new MongoDBService(CONFIG.MONGODB_URI, config.dbName, config.collection);
+-
+-  return {
+-    config,
+-    db,
+-
+-    async init() {
+-      await db.connect();
+-      await db.createIndexes([{ key: { updatedAt: 1 } }]);
+-    },
+-
+-    async shutdown() {
+-      await db.disconnect();
+-    },
+-
+-    async getMealData(date: string): Promise<PublicDayMenu> {
+-      return cornerMenuToPublic(config.presentation.meals, (await getHorangMenu(db, date)).meals);
+-    },
+-
+-    async getStats() {
+-      return db.getStats();
+-    },
+-
+-    async runRefresh(type: "today" | "all") {
+-      return runHorangRefresh(db, type);
+-    },
+-  };
+-}
+diff --git a/src/providers/horang/ocr.ts b/src/providers/horang/ocr.ts
+deleted file mode 100644
+index 6366bcaba2a188372147ddb4362c289b0be71c02..0000000000000000000000000000000000000000
+--- a/src/providers/horang/ocr.ts
++++ /dev/null
+@@ -1,179 +0,0 @@
+-import OpenAI from "openai";
+-import { CONFIG } from "@/core/config";
+-import type { MenuImage } from "@/providers/horang/scrape";
+-import type { HorangMeal } from "@/providers/horang/types";
+-
+-const GATEWAY_BASE_URL = "https://factchat-cloud.mindlogic.ai/v1/gateway";
+-const OCR_MODEL = "gpt-6-luna";
+-const TOOL_NAME = "submit_weekly_menu";
+-
+-interface OcrCorner {
+-  name: string;
+-  price: string;
+-  items: string[];
+-}
+-
+-interface OcrMeal {
+-  time: string;
+-  operatingHours: string;
+-  corners: OcrCorner[];
+-}
+-
+-interface OcrDay {
+-  date: string;
+-  meals: OcrMeal[];
+-}
+-
+-interface OcrResult {
+-  days: OcrDay[];
+-}
+-
+-function emptyToNull(value: string): string | null {
+-  const trimmed = value.trim();
+-  return trimmed.length > 0 ? trimmed : null;
+-}
+-
+-const MENU_TOOL: OpenAI.Chat.ChatCompletionFunctionTool = {
+-  type: "function",
+-  function: {
+-    name: TOOL_NAME,
+-    description: "호랑에듀 구내식당 주간 식단표 이미지에서 추출한 메뉴를 날짜별로 제출합니다.",
+-    strict: true,
+-    parameters: {
+-      type: "object",
+-      additionalProperties: false,
+-      properties: {
+-        days: {
+-          type: "array",
+-          description: "요청된 각 날짜별 메뉴",
+-          items: {
+-            type: "object",
+-            additionalProperties: false,
+-            properties: {
+-              date: { type: "string", description: "YYYY-MM-DD 형식의 날짜" },
+-              meals: {
+-                type: "array",
+-                description: "식사 시간 목록 (중식, 석식)",
+-                items: {
+-                  type: "object",
+-                  additionalProperties: false,
+-                  properties: {
+-                    time: { type: "string", description: "식사 시간 이름 — '중식' 또는 '석식'" },
+-                    operatingHours: {
+-                      type: "string",
+-                      description: "운영 시간 (예: '11:30~14:00'). 표기가 없으면 빈 문자열 ''",
+-                    },
+-                    corners: {
+-                      type: "array",
+-                      description: "해당 식사 시간의 코너 목록",
+-                      items: {
+-                        type: "object",
+-                        additionalProperties: false,
+-                        properties: {
+-                          name: {
+-                            type: "string",
+-                            description: "코너 이름 (예: '자율배식', 'Take-Out', '도시락', '샐러데이')",
+-                          },
+-                          price: {
+-                            type: "string",
+-                            description: "코너 가격, 숫자와 콤마만 (예: '6,500'). 표기가 없으면 빈 문자열 ''",
+-                          },
+-                          items: {
+-                            type: "array",
+-                            description: "메뉴 품목 이름 목록. 가격/원산지/빈 줄/테마 배너 제외, 대표 메뉴를 맨 앞에",
+-                            items: { type: "string" },
+-                          },
+-                        },
+-                        required: ["name", "price", "items"],
+-                      },
+-                    },
+-                  },
+-                  required: ["time", "operatingHours", "corners"],
+-                },
+-              },
+-            },
+-            required: ["date", "meals"],
+-          },
+-        },
+-      },
+-      required: ["days"],
+-    },
+-  },
+-};
+-
+-function buildPrompt(expectedDates: { date: string; weekday: string }[]): string {
+-  const dateLines = expectedDates.map((d) => `- ${d.date} (${d.weekday}요일)`).join("\n");
+-  return [
+-    "이 이미지는 호랑에듀 구내식당(horang-edu)의 한 주간 식단표입니다.",
+-    "표의 가로(열)는 요일(월~금), 세로(행)는 식사 시간(점심·저녁)과 코너입니다.",
+-    "점심(중식)은 보통 '자율배식'과 'Take-Out' 두 코너, 저녁(석식)은 보통 '도시락'과 '샐러데이' 두 코너입니다.",
+-    "자율배식의 대표 메뉴는 빨간 점으로 표시되어 있습니다. 표에 있는 코너는 모두 추출하세요.",
+-    "",
+-    "아래 날짜들이 이 표의 각 요일 열에 순서대로 대응됩니다. 각 날짜마다 그 열의 중식·석식과 모든 코너를 추출하세요:",
+-    dateLines,
+-    "",
+-    "규칙:",
+-    "- meals[].time 은 '중식' 또는 '석식'. 표의 '점심'은 중식, '저녁'은 석식.",
+-    "- corners[].name 은 코너 이름만 (예: '자율배식', 'Take-Out', '도시락', '샐러데이').",
+-    "- corners[].items 에는 음식 이름만 넣고 가격(원/₩)·원산지·운영시간·테마/이벤트 배너·빈 줄은 제외. 대표 메뉴를 맨 앞에.",
+-    "- price 는 숫자와 콤마만 (예: '6,500'). 없으면 빈 문자열 ''.",
+-    "- operatingHours 는 해당 식사 시간의 운영 시간. 없으면 빈 문자열 ''.",
+-    "- 메뉴가 비어 있는 날짜는 meals 를 빈 배열로 두되, 요청된 날짜는 모두 days 에 포함하세요.",
+-    `- ${TOOL_NAME} 도구로만 결과를 제출하세요.`,
+-  ].join("\n");
+-}
+-
+-/**
+- * Run vision OCR on a weekly Horang Edu menu image and return a map of
+- * YYYY-MM-DD -> that day's meals (중식/석식 with their corners).
+- */
+-export async function extractWeeklyMenu(
+-  image: MenuImage,
+-  expectedDates: { date: string; weekday: string }[],
+-): Promise<Map<string, HorangMeal[]>> {
+-  if (!CONFIG.MINDLOGIC_KEY) {
+-    throw new Error("MINDLOGIC_KEY is not configured; cannot run Horang Edu menu OCR");
+-  }
+-
+-  const client = new OpenAI({ apiKey: CONFIG.MINDLOGIC_KEY, baseURL: GATEWAY_BASE_URL });
+-
+-  const response = await client.chat.completions.create({
+-    model: OCR_MODEL,
+-    max_completion_tokens: 16000,
+-    reasoning_effort: "none",
+-    tools: [MENU_TOOL],
+-    tool_choice: { type: "function", function: { name: TOOL_NAME } },
+-    messages: [
+-      {
+-        role: "user",
+-        content: [
+-          { type: "image_url", image_url: { url: `data:${image.mediaType};base64,${image.data}` } },
+-          { type: "text", text: buildPrompt(expectedDates) },
+-        ],
+-      },
+-    ],
+-  });
+-
+-  const toolCall = response.choices[0]?.message.tool_calls?.[0];
+-  if (!toolCall || toolCall.type !== "function") {
+-    throw new Error("Horang Edu menu OCR returned no function tool call");
+-  }
+-
+-  const result = JSON.parse(toolCall.function.arguments) as OcrResult;
+-  const mealsByDate = new Map<string, HorangMeal[]>();
+-
+-  for (const day of result.days) {
+-    const meals: HorangMeal[] = day.meals.map((meal) => ({
+-      time: meal.time,
+-      operatingHours: emptyToNull(meal.operatingHours),
+-      corners: meal.corners.map((corner) => ({
+-        name: corner.name,
+-        price: emptyToNull(corner.price),
+-        items: corner.items,
+-      })),
+-    }));
+-    mealsByDate.set(day.date, meals);
+-  }
+-
+-  return mealsByDate;
+-}
+diff --git a/src/providers/horang/scrape.test.ts b/src/providers/horang/scrape.test.ts
+deleted file mode 100644
+index b27050898e57feb662e5d72703ba43b04b805a9f..0000000000000000000000000000000000000000
+--- a/src/providers/horang/scrape.test.ts
++++ /dev/null
+@@ -1,91 +0,0 @@
+-import { describe, expect, test } from "bun:test";
+-import {
+-  decodePostTitle,
+-  enumerateWeekdays,
+-  findArticleForDate,
+-  type HorangArticle,
+-  parseWeekRange,
+-  toOriginalImageUrl,
+-} from "./scrape";
+-
+-function article(weekStart: string, weekEnd: string, logNo = "1"): HorangArticle {
+-  return { logNo, title: `${weekStart} ~ ${weekEnd}`, weekStart, weekEnd };
+-}
+-
+-describe("decodePostTitle", () => {
+-  test("decodes percent-encoding and plus-as-space", () => {
+-    expect(
+-      decodePostTitle(
+-        "%5B%EB%A9%94%EA%B0%80%EC%8A%A4%ED%84%B0%EB%94%94+%EA%B5%AC%EB%82%B4%EC%8B%9D%EB%8B%B9%5D+2026.08.24%7E08.28%EC%A3%BC%EA%B0%84%EB%A9%94%EB%89%B4%ED%91%9C",
+-      ),
+-    ).toBe("[메가스터디 구내식당] 2026.08.24~08.28주간메뉴표");
+-  });
+-});
+-
+-describe("parseWeekRange", () => {
+-  test("parses the current dotted tilde format", () => {
+-    expect(parseWeekRange("[메가스터디 구내식당] 2026.08.24~08.28주간메뉴표")).toEqual({
+-      weekStart: "2026-08-24",
+-      weekEnd: "2026-08-28",
+-    });
+-  });
+-
+-  test("allows a space before 주간메뉴표", () => {
+-    expect(parseWeekRange("[메가스터디 구내식당] 2026.07.13~07.17 주간메뉴표")).toEqual({
+-      weekStart: "2026-07-13",
+-      weekEnd: "2026-07-17",
+-    });
+-  });
+-
+-  test("parses the older unpadded hyphen format", () => {
+-    expect(parseWeekRange("[ 메가스터디 구내식당 ] 2025.3.3-3.7 주간메뉴표")).toEqual({
+-      weekStart: "2025-03-03",
+-      weekEnd: "2025-03-07",
+-    });
+-  });
+-
+-  test("rolls the year when the range crosses January", () => {
+-    expect(parseWeekRange("[메가스터디 구내식당] 2025.12.29~01.02 주간메뉴표")).toEqual({
+-      weekStart: "2025-12-29",
+-      weekEnd: "2026-01-02",
+-    });
+-  });
+-
+-  test("ignores review posts that are not weekly menus", () => {
+-    expect(parseWeekRange("[메가스터디 구내식당] 7월 5주~8월1주 만족도 베스트 메뉴 리뷰 TOP 3")).toBeNull();
+-  });
+-});
+-
+-describe("findArticleForDate", () => {
+-  const week = article("2026-08-24", "2026-08-28");
+-
+-  test("matches Monday–Friday of the operating week", () => {
+-    expect(findArticleForDate([week], "2026-08-24")?.logNo).toBe("1");
+-    expect(findArticleForDate([week], "2026-08-26")?.logNo).toBe("1");
+-    expect(findArticleForDate([week], "2026-08-28")?.logNo).toBe("1");
+-  });
+-
+-  test("does not match the surrounding weekend", () => {
+-    expect(findArticleForDate([week], "2026-08-23")).toBeNull();
+-    expect(findArticleForDate([week], "2026-08-29")).toBeNull();
+-  });
+-});
+-
+-describe("toOriginalImageUrl", () => {
+-  test("rewrites Naver thumbs to blogfiles and drops size query", () => {
+-    const thumb = "https://mblogthumb-phinf.pstatic.net/MjAyNjA4MjFfMTcy/foo.JPEG/menu.jpg?type=w800";
+-    expect(toOriginalImageUrl(thumb)).toBe("https://blogfiles.pstatic.net/MjAyNjA4MjFfMTcy/foo.JPEG/menu.jpg");
+-  });
+-});
+-
+-describe("enumerateWeekdays", () => {
+-  test("includes both ends", () => {
+-    expect(enumerateWeekdays("2026-08-24", "2026-08-28")).toEqual([
+-      "2026-08-24",
+-      "2026-08-25",
+-      "2026-08-26",
+-      "2026-08-27",
+-      "2026-08-28",
+-    ]);
+-  });
+-});
+diff --git a/src/providers/horang/scrape.ts b/src/providers/horang/scrape.ts
+deleted file mode 100644
+index c1001cd7767e4049d3e737cc847379ffc646ca04..0000000000000000000000000000000000000000
+--- a/src/providers/horang/scrape.ts
++++ /dev/null
+@@ -1,163 +0,0 @@
+-import * as cheerio from "cheerio";
+-import { HORANG_BLOG } from "@/providers/horang/config";
+-import { formatDate, parseLocalDate } from "@/utils/date";
+-import { fetchWithRetry } from "@/utils/fetch";
+-
+-const USER_AGENT =
+-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36";
+-
+-const NAVER_HEADERS = {
+-  "User-Agent": USER_AGENT,
+-  Referer: "https://blog.naver.com/",
+-} as const;
+-
+-/** 2026.08.24~08.28 / 2026.07.13~07.17 / 2025.3.3-3.7 */
+-const WEEK_RANGE = /(\d{4})\.(\d{1,2})\.(\d{1,2})\s*[~～-]\s*(\d{1,2})\.(\d{1,2})/;
+-
+-export interface HorangArticle {
+-  logNo: string;
+-  title: string;
+-  /** YYYY-MM-DD, first operating day of the week */
+-  weekStart: string;
+-  /** YYYY-MM-DD, last operating day of the week */
+-  weekEnd: string;
+-}
+-
+-interface PostTitleListResponse {
+-  postList?: { logNo: string; title: string }[];
+-}
+-
+-function pad2(value: string): string {
+-  return value.padStart(2, "0");
+-}
+-
+-export function decodePostTitle(encoded: string): string {
+-  return decodeURIComponent(encoded.replace(/\+/g, " "));
+-}
+-
+-export function parseWeekRange(title: string): { weekStart: string; weekEnd: string } | null {
+-  if (!title.includes("주간메뉴표")) return null;
+-
+-  const match = title.match(WEEK_RANGE);
+-  if (!match) return null;
+-
+-  const startYear = Number.parseInt(match[1], 10);
+-  const startMonth = Number.parseInt(match[2], 10);
+-  const endMonth = Number.parseInt(match[4], 10);
+-  const endYear = endMonth < startMonth ? startYear + 1 : startYear;
+-
+-  return {
+-    weekStart: `${startYear}-${pad2(match[2])}-${pad2(match[3])}`,
+-    weekEnd: `${endYear}-${pad2(match[4])}-${pad2(match[5])}`,
+-  };
+-}
+-
+-/** Naver thumbnails 404 without a size suffix; blogfiles hosts the original. */
+-export function toOriginalImageUrl(src: string): string {
+-  const withoutQuery = src.split("?")[0];
+-  return withoutQuery
+-    .replace("://mblogthumb-phinf.pstatic.net/", "://blogfiles.pstatic.net/")
+-    .replace("://blogthumb.pstatic.net/", "://blogfiles.pstatic.net/");
+-}
+-
+-async function fetchText(url: string, accept: string): Promise<string> {
+-  return fetchWithRetry<string>(url, {
+-    method: "GET",
+-    headers: { ...NAVER_HEADERS, Accept: accept },
+-    parser: async (response) => response.text(),
+-  });
+-}
+-
+-function parsePostListJson(text: string): PostTitleListResponse {
+-  const sanitized = text.replace(/\\'/g, "'");
+-  return JSON.parse(sanitized) as PostTitleListResponse;
+-}
+-
+-/** Fetch one page of the 호랑에듀 구내식당 메뉴표 category and keep weekly-menu posts. */
+-export async function fetchArticleList(page = 1): Promise<HorangArticle[]> {
+-  const params = new URLSearchParams({
+-    blogId: HORANG_BLOG.BLOG_ID,
+-    viewdate: "",
+-    currentPage: String(page),
+-    categoryNo: String(HORANG_BLOG.CATEGORY_NO),
+-    parentCategoryNo: "",
+-    countPerPage: "10",
+-  });
+-  const html = await fetchText(`${HORANG_BLOG.LIST_URL}?${params.toString()}`, "application/json");
+-  const payload = parsePostListJson(html);
+-
+-  const articles: HorangArticle[] = [];
+-  for (const post of payload.postList ?? []) {
+-    const title = decodePostTitle(post.title);
+-    const range = parseWeekRange(title);
+-    if (!range) continue;
+-    articles.push({ logNo: post.logNo, title, weekStart: range.weekStart, weekEnd: range.weekEnd });
+-  }
+-
+-  return articles;
+-}
+-
+-/** Find the article whose operating week contains the given date. */
+-export function findArticleForDate(articles: HorangArticle[], date: string): HorangArticle | null {
+-  return articles.find((article) => article.weekStart <= date && date <= article.weekEnd) ?? null;
+-}
+-
+-/** Extract the weekly-menu image URL from a blog post. */
+-export async function fetchArticleImageUrl(logNo: string): Promise<string | null> {
+-  const url = `${HORANG_BLOG.POST_VIEW_URL}?blogId=${HORANG_BLOG.BLOG_ID}&logNo=${logNo}`;
+-  const html = await fetchText(url, "text/html");
+-  const $ = cheerio.load(html);
+-
+-  const linkdata = $(".se-main-container .se-image .se-module-image-link").first().attr("data-linkdata");
+-  if (linkdata) {
+-    try {
+-      const parsed = JSON.parse(linkdata) as { src?: string };
+-      if (parsed.src) return toOriginalImageUrl(parsed.src);
+-    } catch {
+-      // fall through to img src
+-    }
+-  }
+-
+-  const img = $(".se-main-container .se-image-resource").first();
+-  const src = img.attr("data-lazy-src") ?? img.attr("src");
+-  return src ? toOriginalImageUrl(src) : null;
+-}
+-
+-export type MenuImageMediaType = "image/png" | "image/jpeg" | "image/gif" | "image/webp";
+-
+-export interface MenuImage {
+-  data: string;
+-  mediaType: MenuImageMediaType;
+-}
+-
+-function detectMediaType(bytes: Uint8Array): MenuImageMediaType {
+-  if (bytes[0] === 0xff && bytes[1] === 0xd8) return "image/jpeg";
+-  if (bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46) return "image/gif";
+-  if (bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[8] === 0x57 && bytes[9] === 0x45) return "image/webp";
+-  return "image/png";
+-}
+-
+-/** Download the menu image as base64 plus its detected media type for vision OCR. */
+-export async function fetchImage(url: string): Promise<MenuImage> {
+-  const buffer = await fetchWithRetry<ArrayBuffer>(url, {
+-    method: "GET",
+-    headers: { ...NAVER_HEADERS, Accept: "image/avif,image/webp,image/apng,image/*,*/*;q=0.8" },
+-    parser: async (response) => response.arrayBuffer(),
+-  });
+-  const bytes = new Uint8Array(buffer);
+-  return { data: Buffer.from(buffer).toString("base64"), mediaType: detectMediaType(bytes) };
+-}
+-
+-/** Inclusive list of YYYY-MM-DD dates from weekStart to weekEnd (the operating days). */
+-export function enumerateWeekdays(weekStart: string, weekEnd: string): string[] {
+-  const dates: string[] = [];
+-  const cursor = parseLocalDate(weekStart);
+-  const end = parseLocalDate(weekEnd);
+-
+-  while (cursor.getTime() <= end.getTime()) {
+-    dates.push(formatDate(cursor));
+-    cursor.setDate(cursor.getDate() + 1);
+-  }
+-
+-  return dates;
+-}
+diff --git a/src/providers/horang/service.ts b/src/providers/horang/service.ts
+deleted file mode 100644
+index 285304f5b6031f808986f789958f999c4b8c2f49..0000000000000000000000000000000000000000
+--- a/src/providers/horang/service.ts
++++ /dev/null
+@@ -1,109 +0,0 @@
+-import { logger } from "@/core/logger";
+-import { getCachedMealDataOrThrow } from "@/core/mealLookup";
+-import type { MongoDBService } from "@/core/mongodb";
+-import { extractWeeklyMenu } from "@/providers/horang/ocr";
+-import {
+-  enumerateWeekdays,
+-  fetchArticleImageUrl,
+-  fetchArticleList,
+-  fetchImage,
+-  findArticleForDate,
+-  type HorangArticle,
+-} from "@/providers/horang/scrape";
+-import type { HorangMenu } from "@/providers/horang/types";
+-import { formatDate, getWeekDates } from "@/utils/date";
+-
+-const WEEKDAY_LABELS = ["일", "월", "화", "수", "목", "금", "토"];
+-
+-function emptyMenu(): HorangMenu {
+-  return { meals: [] };
+-}
+-
+-function weekdayLabel(dateStr: string): string {
+-  const [year, month, day] = dateStr.split("-").map(Number);
+-  return WEEKDAY_LABELS[new Date(year, month - 1, day).getDay()];
+-}
+-
+-/**
+- * Fetch the post's menu image, OCR the whole week in one call, and persist
+- * one document per operating day. Returns the per-date menu that was saved.
+- */
+-async function refreshWeekFromArticle(db: MongoDBService, article: HorangArticle): Promise<Map<string, HorangMenu>> {
+-  const refreshLogger = logger.operation("horang-refresh-week");
+-  const dates = enumerateWeekdays(article.weekStart, article.weekEnd);
+-  const result = new Map<string, HorangMenu>();
+-
+-  const imageUrl = await fetchArticleImageUrl(article.logNo);
+-  if (!imageUrl) {
+-    refreshLogger.warn(`No menu image found for post ${article.logNo} (${article.title})`);
+-    for (const date of dates) {
+-      const data = emptyMenu();
+-      await db.saveMealData(date, data);
+-      result.set(date, data);
+-    }
+-    return result;
+-  }
+-
+-  const image = await fetchImage(imageUrl);
+-  const expectedDates = dates.map((date) => ({ date, weekday: weekdayLabel(date) }));
+-  const mealsByDate = await extractWeeklyMenu(image, expectedDates);
+-
+-  for (const date of dates) {
+-    const data: HorangMenu = { meals: mealsByDate.get(date) ?? [] };
+-    await db.saveMealData(date, data);
+-    result.set(date, data);
+-    refreshLogger.info(`Saved Horang Edu ${date}: ${data.meals.length} meals`);
+-  }
+-
+-  return result;
+-}
+-
+-export async function getHorangMenu(db: MongoDBService, dateParam: string): Promise<HorangMenu> {
+-  return getCachedMealDataOrThrow<HorangMenu>(db, dateParam);
+-}
+-
+-export async function runHorangRefresh(db: MongoDBService, refreshType: "today" | "all"): Promise<void> {
+-  const refreshLogger = logger.operation("horang-refresh");
+-  const timer = refreshLogger.time();
+-
+-  try {
+-    refreshLogger.info(`Starting Horang Edu cafeteria data refresh (${refreshType})`);
+-
+-    const today = formatDate(new Date());
+-    const targetDates =
+-      refreshType === "all"
+-        ? [...getWeekDates(today), ...getWeekDates(formatDate(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)))]
+-        : [today];
+-
+-    const articles = await fetchArticleList(1);
+-
+-    const processed = new Set<string>();
+-    const toProcess: HorangArticle[] = [];
+-    for (const date of targetDates) {
+-      const article = findArticleForDate(articles, date);
+-      if (article && !processed.has(article.logNo)) {
+-        processed.add(article.logNo);
+-        toProcess.push(article);
+-      }
+-    }
+-
+-    let successCount = 0;
+-    let errorCount = 0;
+-
+-    for (const article of toProcess) {
+-      try {
+-        await refreshWeekFromArticle(db, article);
+-        refreshLogger.info(`✓ Completed Horang Edu week ${article.weekStart} ~ ${article.weekEnd}`);
+-        successCount++;
+-      } catch (error) {
+-        errorCount++;
+-        refreshLogger.error(`✗ Failed Horang Edu week ${article.weekStart} ~ ${article.weekEnd}`, error);
+-      }
+-    }
+-
+-    timer(`Horang Edu refresh completed (${refreshType}): ${successCount} success, ${errorCount} errors`);
+-  } catch (error) {
+-    refreshLogger.error("Horang Edu cafeteria refresh failed", error);
+-    throw error;
+-  }
+-}
+diff --git a/src/providers/horang/types.ts b/src/providers/horang/types.ts
+deleted file mode 100644
+index 9961c75ade18bed5b6014435fd13695027c89abf..0000000000000000000000000000000000000000
+--- a/src/providers/horang/types.ts
++++ /dev/null
+@@ -1,20 +0,0 @@
+-export interface HorangMenuCorner {
+-  /** 코너 이름 — "자율배식", "Take-Out", "도시락", "샐러데이" 등 */
+-  name: string;
+-  /** 코너 가격 — "6,500" (숫자+콤마). 없으면 null */
+-  price: string | null;
+-  /** 메뉴 품목 이름 목록 */
+-  items: string[];
+-}
+-
+-export interface HorangMeal {
+-  /** 식사 시간 — "중식", "석식" */
+-  time: string;
+-  /** 운영 시간 — "11:30~14:00". 없으면 null */
+-  operatingHours: string | null;
+-  corners: HorangMenuCorner[];
+-}
+-
+-export interface HorangMenu {
+-  meals: HorangMeal[];
+-}
+diff --git a/src/providers/init.test.ts b/src/providers/init.test.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..1d182a18f3176804462e68f5f3d369c077778991
+--- /dev/null
++++ b/src/providers/init.test.ts
+@@ -0,0 +1,12 @@
++import { expect, test } from "bun:test";
++import { sourcesFromProviders } from "@/mcp/server";
++import { initializeRegistry } from "@/providers/init";
++
++test("only registers Dimigo for HTTP, MCP, and scheduled collection", () => {
++  const registry = initializeRegistry();
++  expect(registry.getProviders().map((provider) => provider.config.id)).toEqual(["kdmhs"]);
++  expect(sourcesFromProviders(registry.getProviders()).map((source) => source.id)).toEqual(["kdmhs"]);
++  expect(registry.findByPath("/dgu/health")).toBeUndefined();
++  expect(registry.findByPath("/horang/health")).toBeUndefined();
++  expect(initializeRegistry().getProviders()).toHaveLength(1);
++});
+diff --git a/src/providers/init.ts b/src/providers/init.ts
+index 003e32ee1e8be875734c436bd64ca15aac59e062..b03636bd91c63d1125e10b7233604576e12210fd 100644
+--- a/src/providers/init.ts
++++ b/src/providers/init.ts
+@@ -1,5 +1,3 @@
+-import { createDguProvider } from "@/providers/dgu";
+-import { createHorangProvider } from "@/providers/horang";
+ import { createKdmhsProvider } from "@/providers/kdmhs";
+ import { getRegistry, type ProviderRegistry } from "@/providers/registry";
+ 
+@@ -9,8 +7,6 @@ export function initializeRegistry(): ProviderRegistry {
+   // Guard against repeated initialization in the same process.
+   if (reg.getProviders().length === 0) {
+     reg.register(createKdmhsProvider());
+-    reg.register(createDguProvider());
+-    reg.register(createHorangProvider());
+   }
+ 
+   return reg;
+diff --git a/src/providers/kdmhs/config.ts b/src/providers/kdmhs/config.ts
+index 572755bbc7cfdac6517e9541f9d7ef0cca6a0b92..1d559edb4a51b3bcb65bf325634ad39eb4ceebe3 100644
+--- a/src/providers/kdmhs/config.ts
++++ b/src/providers/kdmhs/config.ts
+@@ -14,7 +14,6 @@ export const KDMHS_CONFIG: ProviderConfig = {
+     description: "디미고 급식을 확인해보세요",
+     keywords: ["급식", "디미고", "한국디지털미디어고등학교", "식단", "밥.net"],
+     googleSiteVerification: "Autqjgf5q34Q-Bi4JnRwIuiJW-WzwkCU6Y4wlGU0IVU",
+-    adsenseClient: "ca-pub-2186209581588169",
+     features: { foodSearch: true },
+     meals: [
+       {
+diff --git a/src/providers/registry.test.ts b/src/providers/registry.test.ts
+index f8185d1f906fb37002a94480c2e4cc082599a5a9..25ac1443d92cdefdb8e26541a2113f20b987c564 100644
+--- a/src/providers/registry.test.ts
++++ b/src/providers/registry.test.ts
+@@ -38,7 +38,7 @@ describe("ProviderRegistry path matching", () => {
+   function registry() {
+     const reg = new ProviderRegistry();
+     reg.register(fakeProvider("kdmhs", "/kdmhs"));
+-    reg.register(fakeProvider("dgu", "/dgu"));
++    reg.register(fakeProvider("example", "/example"));
+     return reg;
+   }
+ 
+@@ -53,8 +53,8 @@ describe("ProviderRegistry path matching", () => {
+     expect(reg.findByPath("/kdmhs/2026-08-20")?.config.id).toBe("kdmhs");
+     expect(reg.findByPath("/kdmhs/health")?.config.id).toBe("kdmhs");
+     expect(reg.findByPath("/kdmhs/search/김치전")?.config.id).toBe("kdmhs");
+-    expect(reg.findByPath("/dgu/2026-08-20")?.config.id).toBe("dgu");
+-    expect(reg.findByPath("/dgu/health")?.config.id).toBe("dgu");
++    expect(reg.findByPath("/example/2026-08-20")?.config.id).toBe("example");
++    expect(reg.findByPath("/example/health")?.config.id).toBe("example");
+   });
+ 
+   test("does not treat root paths as a default provider", () => {
+@@ -67,14 +67,14 @@ describe("ProviderRegistry path matching", () => {
+   test("strips the matching prefix from subPath", () => {
+     const reg = registry();
+     const kdmhs = reg.findByPath("/kdmhs/2026-08-20");
+-    const dgu = reg.findByPath("/dgu/2026-08-20");
+-    if (!kdmhs || !dgu) {
++    const example = reg.findByPath("/example/2026-08-20");
++    if (!kdmhs || !example) {
+       throw new Error("expected providers");
+     }
+ 
+     expect(reg.getSubPath(kdmhs, "/kdmhs/2026-08-20")).toBe("/2026-08-20");
+     expect(reg.getSubPath(kdmhs, "/kdmhs/search/김치전")).toBe("/search/김치전");
+     expect(reg.getSubPath(kdmhs, "/kdmhs")).toBe("/");
+-    expect(reg.getSubPath(dgu, "/dgu/health")).toBe("/health");
++    expect(reg.getSubPath(example, "/example/health")).toBe("/health");
+   });
+ });
+diff --git a/src/providers/types.ts b/src/providers/types.ts
+index 2d253e53e64c2747bf4c717dfe8bc3601eef3e41..f6942ef36bbd30d88660840981820157a217d1a7 100644
+--- a/src/providers/types.ts
++++ b/src/providers/types.ts
+@@ -11,7 +11,7 @@ export interface ScheduleEntry {
+ export interface ProviderConfig {
+   id: string;
+   name: string;
+-  /** Route prefix, e.g. "/kdmhs" or "/dgu" */
++  /** Route prefix, "/kdmhs" */
+   basePath: string;
+   dbName: string;
+   collection: string;
+diff --git a/src/server.ts b/src/server.ts
+index 8c7135d60dc5eb5ea0252bc0454788a9565775ba..ce92e2952fce49924b56d1ed726959b9496d7cc8 100644
+--- a/src/server.ts
++++ b/src/server.ts
+@@ -1,6 +1,5 @@
+ import { CONFIG } from "@/core/config";
+ import { logger } from "@/core/logger";
+-import { PARTNER_AD_DB, PartnerAdStats } from "@/core/partnerAdStats";
+ import type { SchedulerHandle } from "@/core/scheduler";
+ import { setupScheduler } from "@/core/scheduler";
+ import { createApp } from "@/http/app";
+@@ -20,14 +19,8 @@ export async function createServer() {
+     }
+ 
+     const schedulerHandles: (SchedulerHandle | null)[] = [];
+-    const statsProvider = providers.find((provider) => provider.config.dbName === PARTNER_AD_DB);
+-    if (!statsProvider) {
+-      throw new Error(`Partner ad stats need the existing ${PARTNER_AD_DB} database`);
+-    }
+-    const partnerAds = new PartnerAdStats(statsProvider.db);
+-    await partnerAds.ensureIndexes();
+     const mcpHandler = createBapMcpHandler({ sources: sourcesFromProviders(providers) });
+-    const app = createApp({ registry, mcpHandler, partnerAds });
++    const app = createApp({ registry, mcpHandler });
+ 
+     app.listen(CONFIG.SERVER.PORT);
+ 
